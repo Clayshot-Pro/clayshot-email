@@ -82,6 +82,17 @@ scripts/                    build/asset and deployment helper scripts
 .github/workflows/          version-branch validation and security scanning
 ```
 
+## Planned: Cloudflare-native multi-mailbox webmail
+
+A documentation-only proposal describes how to add multiple native `@liamthemo.com` mailboxes, per-mailbox folders and sender selection within the existing Cloudflare-hosted web app. It does **not** add IMAP/SMTP logins or deploy new mailbox capabilities. Keep the current `contact@liamthemo.com` mailbox and Gmail connections intact during implementation.
+
+- [Roadmap and intended scope](./docs/multi-mailbox/README.md)
+- [Architecture and schema design](./docs/multi-mailbox/ARCHITECTURE.md)
+- [Implementation phases and validation](./docs/multi-mailbox/IMPLEMENTATION_PLAN.md)
+- [Security, costs, Cloudflare constraints and open decisions](./docs/multi-mailbox/OPERATIONS.md)
+
+**Outbound policy gate:** Cloudflare Email Sending is documented as transactional-only. Do not enable arbitrary person-to-person multi-mailbox sending until Cloudflare confirms that usage is permitted.
+
 ## Development and deployment
 
 This repository reflects the source for a private production service. Runtime infrastructure, account configuration, credentials, and production-only values are managed separately from source control.
