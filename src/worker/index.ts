@@ -129,7 +129,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   if (url.pathname === "/api/device/accounts" && request.method === "GET") {
     return getConnectedAccounts(request, env);
   }
-  const deviceAccountRoute = url.pathname.match(/^\\/api\\/device\\/accounts\\/([^/]+)$/);
+  const deviceAccountRoute = url.pathname.match(new RegExp("^/api/device/accounts/([^/]+)$"));
   if (deviceAccountRoute && request.method === "DELETE") {
     const id = decodedRouteId(deviceAccountRoute);
     if (!id) return jsonError("Invalid account", 400);
@@ -139,7 +139,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   if (url.pathname === "/api/mailboxes" && request.method === "GET") {
     return Response.json({ mailboxes: await allNativeMailboxes(env) });
   }
-  const passwordRoute = url.pathname.match(/^\\/api\\/mailboxes\\/([^/]+)\\/reset-password$/);
+  const passwordRoute = url.pathname.match(new RegExp("^/api/mailboxes/([^/]+)/reset-password$"));
   if (passwordRoute && request.method === "POST") {
     const id = decodedRouteId(passwordRoute);
     if (!id) return jsonError("Invalid mailbox ID", 400);
@@ -165,7 +165,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
         const form = await request.clone().formData().catch(() => null);
         requested = typeof form?.get("accountId") === "string" ? String(form.get("accountId")) : null;
       } else if (url.pathname === "/api/drafts") {
-        const body = await request.clone().json<{accountId?:unknown}>().catch(() => null);
+        const body = await request.clone().json().catch(() => null) as {accountId?:unknown} | null;
         requested = typeof body?.accountId === "string" ? body.accountId : null;
       }
     }
