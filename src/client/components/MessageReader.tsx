@@ -12,6 +12,7 @@ type MessageReaderProps = {
   folderLabel: string;
   loading?: boolean;
   onBack: () => void;
+  accountId: string;
   onReply: () => void;
   onForward: () => void;
   onPatch: (patch: Record<string, boolean>, closeAfter?: boolean) => void;
@@ -56,7 +57,7 @@ function RichEmailBody({ html }: { html: string }) {
   );
 }
 
-export function MessageReader({ message, thread, folderLabel, loading = false, onBack, onReply, onForward, onPatch }: MessageReaderProps) {
+export function MessageReader({ message, thread, folderLabel, loading = false, accountId, onBack, onReply, onForward, onPatch }: MessageReaderProps) {
   const [previewAttachment, setPreviewAttachment] = useState<MessageDetail["attachments"][number] | null>(null);
 
   if (loading && !message) {
@@ -100,6 +101,9 @@ export function MessageReader({ message, thread, folderLabel, loading = false, o
           ) : !message.isDeleted ? (
             <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isArchived: !message.isArchived }, true)} aria-label={message.isArchived ? "Unarchive message" : "Archive message"}><Icon name="archive" size={17}/><span>{message.isArchived ? "Unarchive" : "Archive"}</span></button>
           ) : null}
+          {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
+            <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isJunk: true }, true)} aria-label="Mark as junk"><Icon name="junk" size={17}/><span>Junk</span></button>
+          ) : null}
           <button className="mobile-reader-action" type="button" onClick={onReply} aria-label="Reply to message"><Icon name="reply" size={17}/><span>Reply</span></button>
           {!message.isDeleted ? (
             <button className="mobile-reader-action destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)} aria-label="Delete message"><Icon name="trash" size={17}/><span>Delete</span></button>
@@ -139,7 +143,7 @@ export function MessageReader({ message, thread, folderLabel, loading = false, o
                 </div>
                 <div className="attachment-grid">
                   {item.attachments.map((attachment) => {
-                    const previewHref = `/api/attachment-previews/${encodeURIComponent(attachment.id)}`;
+                    const previewHref = `/api/attachment-previews/${encodeURIComponent(attachment.id)}?accountId=${encodeURIComponent(accountId)}`;
                     const isImage = ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(attachment.contentType);
                     return (
                       <button
@@ -168,6 +172,9 @@ export function MessageReader({ message, thread, folderLabel, loading = false, o
         ) : !message.isDeleted ? (
           <button type="button" onClick={() => onPatch({ isArchived: !message.isArchived }, true)}><Icon name="archive" size={16}/>{message.isArchived ? "Unarchive" : "Archive"}</button>
         ) : null}
+        {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
+          <button type="button" onClick={() => onPatch({ isJunk: true }, true)}><Icon name="junk" size={16}/>Junk</button>
+        ) : null}
         {!message.isDeleted ? (
           <button className="destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)}><Icon name="trash" size={16}/>Delete</button>
         ) : (
@@ -175,7 +182,7 @@ export function MessageReader({ message, thread, folderLabel, loading = false, o
         )}
       </footer>
 
-      <AttachmentPreview attachment={previewAttachment} onClose={() => setPreviewAttachment(null)}/>
+      <AttachmentPreview attachment={previewAttachment} accountId={accountId} onClose={() => setPreviewAttachment(null)}/>
     </section>
   );
 }

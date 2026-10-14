@@ -1,5 +1,7 @@
+import { resolveProvider } from "../providers/registry";
 type DraftRow = {
   id: string;
+  mailbox_id: string;
   thread_id: string | null;
   to_addresses: string;
   cc_addresses: string;
@@ -32,6 +34,7 @@ function splitRecipients(value: unknown): string[] {
 function draftResponse(row: DraftRow) {
   return {
     id: row.id,
+    accountId: row.mailbox_id,
     threadId: row.thread_id,
     to: parseArray(row.to_addresses).join(", "),
     cc: parseArray(row.cc_addresses).join(", "),
@@ -45,12 +48,14 @@ function draftResponse(row: DraftRow) {
   };
 }
 
-export async function getDraft(id: string, env: Env): Promise<Response> {
+export async function getDraft(id: string, env: Env, accountId?: string | null): Promise<Response> {
+  const provider = await resolveProvider(env, accountId);
+  if (!provider) return Response.json({ error: "Account not found" }, { status: 404 });
   const row = await env.DB.prepare(
-    `SELECT id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
+    `SELECT id, mailbox_id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
             reply_to_message_id, forward_message_id, created_at, updated_at
-       FROM drafts WHERE id = ?1`,
-  ).bind(id).first<DraftRow>();
+       FROM drafts WHERE id = ?1 AND mailbox_id = ?2`,
+  ).bind(id, provider.accountId).first<DraftRow>();
 
   if (!row) return Response.json({ error: "Draft not found" }, { status: 404 });
   return Response.json({ draft: draftResponse(row) });
@@ -64,6 +69,8 @@ export async function saveDraft(request: Request, env: Env): Promise<Response> {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  const provider = await resolveProvider(env, typeof body.accountId === "string" ? body.accountId : null);
+  if (!provider) return Response.json({ error: "Account not found" }, { status: 404 });
   const requestedId = typeof body.id === "string" ? body.id.trim() : "";
   const id = requestedId || crypto.randomUUID();
   const to = splitRecipients(body.to);
@@ -80,16 +87,16 @@ export async function saveDraft(request: Request, env: Env): Promise<Response> {
 
   let threadId: string | null = null;
   if (replyToMessageId) {
-    const target = await env.DB.prepare("SELECT thread_id FROM messages WHERE id = ?1")
-      .bind(replyToMessageId)
+    const target = await env.DB.prepare("SELECT thread_id FROM messages WHERE id = ?1 AND mailbox_id = ?2")
+      .bind(replyToMessageId, provider.accountId)
       .first<{ thread_id: string }>();
     if (!target) return Response.json({ error: "Reply target was not found" }, { status: 404 });
     threadId = target.thread_id;
   }
 
   if (forwardMessageId) {
-    const target = await env.DB.prepare("SELECT id FROM messages WHERE id = ?1")
-      .bind(forwardMessageId)
+    const target = await env.DB.prepare("SELECT id FROM messages WHERE id = ?1 AND mailbox_id = ?2")
+      .bind(forwardMessageId, provider.accountId)
       .first<{ id: string }>();
     if (!target) return Response.json({ error: "Forward target was not found" }, { status: 404 });
   }
@@ -98,8 +105,8 @@ export async function saveDraft(request: Request, env: Env): Promise<Response> {
   await env.DB.prepare(
     `INSERT INTO drafts (
        id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text, body_html,
-       reply_to_message_id, forward_message_id, created_at, updated_at
-     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', ?8, ?9, ?10, ?10)
+       reply_to_message_id, forward_message_id, created_at, updated_at, mailbox_id
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', ?8, ?9, ?10, ?10, ?11)
      ON CONFLICT(id) DO UPDATE SET
        thread_id = excluded.thread_id,
        to_addresses = excluded.to_addresses,
@@ -110,7 +117,8 @@ export async function saveDraft(request: Request, env: Env): Promise<Response> {
        body_html = '',
        reply_to_message_id = excluded.reply_to_message_id,
        forward_message_id = excluded.forward_message_id,
-       updated_at = excluded.updated_at`,
+       updated_at = excluded.updated_at
+     WHERE drafts.mailbox_id = excluded.mailbox_id`,
   ).bind(
     id,
     threadId,
@@ -122,20 +130,23 @@ export async function saveDraft(request: Request, env: Env): Promise<Response> {
     replyToMessageId,
     forwardMessageId,
     nowIso,
+    provider.accountId,
   ).run();
 
   const row = await env.DB.prepare(
-    `SELECT id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
+    `SELECT id, mailbox_id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
             reply_to_message_id, forward_message_id, created_at, updated_at
-       FROM drafts WHERE id = ?1`,
-  ).bind(id).first<DraftRow>();
+       FROM drafts WHERE id = ?1 AND mailbox_id = ?2`,
+  ).bind(id, provider.accountId).first<DraftRow>();
 
   if (!row) return Response.json({ error: "Draft could not be saved" }, { status: 500 });
   return Response.json({ draft: draftResponse(row) });
 }
 
-export async function deleteDraft(id: string, env: Env): Promise<Response> {
-  const result = await env.DB.prepare("DELETE FROM drafts WHERE id = ?1").bind(id).run();
+export async function deleteDraft(id: string, env: Env, accountId?: string | null): Promise<Response> {
+  const provider = await resolveProvider(env, accountId);
+  if (!provider) return Response.json({ error: "Account not found" }, { status: 404 });
+  const result = await env.DB.prepare("DELETE FROM drafts WHERE id = ?1 AND mailbox_id = ?2").bind(id, provider.accountId).run();
   if (!result.meta.changes) return Response.json({ error: "Draft not found" }, { status: 404 });
   return Response.json({ ok: true });
 }

@@ -15,16 +15,17 @@ type NativeMessageRow = {
   is_starred: number;
   is_archived: number;
   is_deleted: number;
+  is_junk: number;
   has_attachments: number;
   delivery_status: string | null;
 };
 
 const folderWhere = {
-  inbox: "direction = 'inbound' AND is_archived = 0 AND is_deleted = 0",
-  junk: "1 = 0",
-  starred: "is_starred = 1 AND is_deleted = 0",
+  inbox: "direction = 'inbound' AND is_archived = 0 AND is_deleted = 0 AND is_junk = 0",
+  junk: "is_junk = 1 AND is_deleted = 0",
+  starred: "is_starred = 1 AND is_deleted = 0 AND is_junk = 0",
   sent: "direction = 'outbound' AND is_archived = 0 AND is_deleted = 0",
-  archive: "is_archived = 1 AND is_deleted = 0",
+  archive: "is_archived = 1 AND is_deleted = 0 AND is_junk = 0",
   trash: "is_deleted = 1",
 } as const;
 
@@ -54,7 +55,7 @@ function toListItem(row: NativeMessageRow): ProviderMessage {
     isStarred: Boolean(row.is_starred),
     isArchived: Boolean(row.is_archived),
     isDeleted: Boolean(row.is_deleted),
-    isJunk: false,
+    isJunk: Boolean(row.is_junk),
     hasAttachments: Boolean(row.has_attachments),
     deliveryStatus: row.delivery_status,
     isDraft: false,
@@ -63,32 +64,27 @@ function toListItem(row: NativeMessageRow): ProviderMessage {
 
 export class NativeMailProvider implements MailProvider {
   readonly kind = "native" as const;
-  readonly accountId = "native:primary";
-
-  constructor(private readonly env: Env) {}
-
-  get address() {
-    return this.env.PRIMARY_ADDRESS;
-  }
+  constructor(private readonly env: Env, readonly accountId: string, readonly address: string, readonly senderName: string) {}
 
   async listMessages(options: ProviderListOptions): Promise<ProviderMessage[]> {
-    let where = folderWhere[options.folder];
-    const bindings: Array<string | number> = [];
+    let where: string = folderWhere[options.folder];
+    const bindings: Array<string | number> = [this.accountId];
+    where = `mailbox_id = ? AND (${where})`;
     if (options.search) {
       where += " AND (LOWER(subject) LIKE ? OR LOWER(from_address) LIKE ? OR LOWER(COALESCE(from_name, '')) LIKE ? OR LOWER(preview) LIKE ?)";
       const term = `%${options.search.toLowerCase().slice(0, 200)}%`;
       bindings.push(term, term, term, term);
     }
     bindings.push(Math.max(1, Math.min(100, Math.floor(options.limit))));
-    const result = await this.env.DB.prepare(`SELECT id, thread_id, direction, from_address, from_name, to_addresses, subject, preview, received_at, sent_at, is_read, is_starred, is_archived, is_deleted, has_attachments, delivery_status FROM messages WHERE ${where} ORDER BY COALESCE(sent_at, received_at) DESC LIMIT ?`)
+    const result = await this.env.DB.prepare(`SELECT id, thread_id, direction, from_address, from_name, to_addresses, subject, preview, received_at, sent_at, is_read, is_starred, is_archived, is_deleted, is_junk, has_attachments, delivery_status FROM messages WHERE ${where} ORDER BY COALESCE(sent_at, received_at) DESC LIMIT ?`)
       .bind(...bindings)
       .all<NativeMessageRow>();
     return result.results.map(toListItem);
   }
 
   async getMessage(id: string): Promise<ProviderMessage | null> {
-    const row = await this.env.DB.prepare("SELECT id, thread_id, direction, from_address, from_name, to_addresses, subject, preview, received_at, sent_at, is_read, is_starred, is_archived, is_deleted, has_attachments, delivery_status FROM messages WHERE id = ?1 LIMIT 1")
-      .bind(id)
+    const row = await this.env.DB.prepare("SELECT id, thread_id, direction, from_address, from_name, to_addresses, subject, preview, received_at, sent_at, is_read, is_starred, is_archived, is_deleted, is_junk, has_attachments, delivery_status FROM messages WHERE id = ?1 AND mailbox_id = ?2 LIMIT 1")
+      .bind(id, this.accountId)
       .first<NativeMessageRow>();
     return row ? toListItem(row) : null;
   }
@@ -99,6 +95,7 @@ export class NativeMailProvider implements MailProvider {
       ["isStarred", "is_starred"],
       ["isArchived", "is_archived"],
       ["isDeleted", "is_deleted"],
+      ["isJunk", "is_junk"],
     ];
     const sets: string[] = [];
     const values: number[] = [];
@@ -110,15 +107,16 @@ export class NativeMailProvider implements MailProvider {
       }
     }
     if (!sets.length) return false;
-    const result = await this.env.DB.prepare(`UPDATE messages SET ${sets.join(", ")} WHERE id = ?`)
-      .bind(...values, id)
+    const result = await this.env.DB.prepare(`UPDATE messages SET ${sets.join(", ")} WHERE id = ? AND mailbox_id = ?`)
+      .bind(...values, id, this.accountId)
       .run();
     return Boolean(result.meta.changes);
   }
 
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
-    const result = await this.env.EMAIL.send({
-      from: { email: this.address, name: "Liam" },
+    const transport = this.accountId === "native:primary" ? this.env.EMAIL : this.env.EMAIL_MULTI;
+    const result = await transport.send({
+      from: { email: this.address, name: this.senderName },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,
       bcc: input.bcc.length ? input.bcc : undefined,
@@ -138,6 +136,6 @@ export class NativeMailProvider implements MailProvider {
   }
 }
 
-export function nativeProvider(env: Env) {
-  return new NativeMailProvider(env);
+export function nativeProvider(env: Env, id: string, address: string, senderName: string) {
+  return new NativeMailProvider(env, id, address, senderName);
 }

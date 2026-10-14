@@ -12,13 +12,14 @@ type Attachment = {
 type AttachmentPreviewProps = {
   attachment: Attachment | null;
   onClose: () => void;
+  accountId: string;
 };
 
 function canPreviewImage(contentType: string): boolean {
   return ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(contentType);
 }
 
-export function AttachmentPreview({ attachment, onClose }: AttachmentPreviewProps) {
+export function AttachmentPreview({ attachment, accountId, onClose }: AttachmentPreviewProps) {
   useEffect(() => {
     if (!attachment) return;
     const previousOverflow = document.body.style.overflow;
@@ -35,8 +36,8 @@ export function AttachmentPreview({ attachment, onClose }: AttachmentPreviewProp
 
   if (!attachment) return null;
 
-  const previewUrl = `/api/attachment-previews/${encodeURIComponent(attachment.id)}`;
-  const downloadUrl = `/api/attachments/${encodeURIComponent(attachment.id)}`;
+  const previewUrl = `/api/attachment-previews/${encodeURIComponent(attachment.id)}?accountId=${encodeURIComponent(accountId)}`;
+  const downloadUrl = `/api/attachments/${encodeURIComponent(attachment.id)}?accountId=${encodeURIComponent(accountId)}`;
   const image = canPreviewImage(attachment.contentType);
   const pdf = attachment.contentType === "application/pdf";
 

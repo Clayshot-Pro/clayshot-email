@@ -24,6 +24,7 @@ type MessageRow = {
   is_starred: number;
   is_archived: number;
   is_deleted: number;
+  is_junk: number;
   has_attachments: number;
   raw_r2_key: string | null;
   in_reply_to: string | null;
@@ -93,7 +94,7 @@ function toListItem(row: MessageRow) {
     isStarred: Boolean(row.is_starred),
     isArchived: Boolean(row.is_archived),
     isDeleted: Boolean(row.is_deleted),
-    isJunk: false,
+    isJunk: Boolean(row.is_junk),
     hasAttachments: Boolean(row.has_attachments),
     deliveryStatus: row.delivery_status,
     isDraft: false,
@@ -123,10 +124,10 @@ function toDraftListItem(row: DraftListRow, primary: string) {
   };
 }
 
-async function mailboxCounts(env: Env) {
+async function mailboxCounts(env: Env, accountId: string) {
   const [unread, drafts] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS count FROM messages WHERE direction='inbound' AND is_archived=0 AND is_deleted=0 AND is_read=0").first<{ count: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM drafts").first<{ count: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS count FROM messages WHERE mailbox_id=?1 AND direction='inbound' AND is_archived=0 AND is_deleted=0 AND is_junk=0 AND is_read=0").bind(accountId).first<{ count: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS count FROM drafts WHERE mailbox_id=?1").bind(accountId).first<{ count: number }>(),
   ]);
   return { unreadCount: unread?.count ?? 0, draftCount: drafts?.count ?? 0 };
 }
@@ -142,9 +143,12 @@ export async function listMessages(request: Request, env: Env): Promise<Response
   const requestedLimit = Number(url.searchParams.get("limit") ?? 50);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, Math.floor(requestedLimit))) : 50;
 
+  const provider = await resolveProvider(env, url.searchParams.get("accountId"));
+  if (!provider) return Response.json({ error: "Account not found or unavailable" }, { status: 404 });
+
   if (folder === "drafts") {
-    let where = "1 = 1";
-    const bindings: Array<string | number> = [];
+    let where = "mailbox_id = ?";
+    const bindings: Array<string | number> = [provider.accountId];
     if (search) {
       where += " AND (LOWER(subject) LIKE ? OR LOWER(body_text) LIKE ? OR LOWER(to_addresses) LIKE ?)";
       const term = `%${search}%`;
@@ -152,18 +156,16 @@ export async function listMessages(request: Request, env: Env): Promise<Response
     }
     bindings.push(limit);
     const [counts, result] = await Promise.all([
-      mailboxCounts(env),
+      mailboxCounts(env, provider.accountId),
       env.DB.prepare(`SELECT id,thread_id,to_addresses,subject,body_text,updated_at FROM drafts WHERE ${where} ORDER BY updated_at DESC LIMIT ?`)
         .bind(...bindings)
         .all<DraftListRow>(),
     ]);
-    return Response.json({ folder, ...counts, messages: result.results.map((row) => toDraftListItem(row, env.PRIMARY_ADDRESS)) });
+    return Response.json({ folder, ...counts, accountId: provider.accountId, messages: result.results.map((row) => toDraftListItem(row, provider.address)) });
   }
 
-  const provider = await resolveProvider(env, url.searchParams.get("accountId"));
-  if (!provider) return Response.json({ error: "Account not found or unavailable" }, { status: 404 });
   const [counts, messages] = await Promise.all([
-    mailboxCounts(env),
+    mailboxCounts(env, provider.accountId),
     provider.listMessages({ folder: folder as MailFolder, search, limit }),
   ]);
   return Response.json({ folder, ...counts, accountId: provider.accountId, messages });
@@ -218,25 +220,25 @@ export async function getMessage(request: Request, id: string, env: Env): Promis
     }
   }
 
-  const initialRow = await env.DB.prepare(`SELECT id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,bcc_addresses,subject,preview,body_text,body_html,received_at,sent_at,is_read,is_starred,is_archived,is_deleted,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status,delivery_error FROM messages WHERE id=?1`)
-    .bind(id)
+  const initialRow = await env.DB.prepare(`SELECT id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,bcc_addresses,subject,preview,body_text,body_html,received_at,sent_at,is_read,is_starred,is_archived,is_deleted,is_junk,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status,delivery_error FROM messages WHERE id=?1 AND mailbox_id=?2`)
+    .bind(id, provider.accountId)
     .first<MessageRow>();
   if (!initialRow) return Response.json({ error: "Message not found" }, { status: 404 });
   const row = await recoverStoredHtml(env, initialRow);
 
-  const unread = await env.DB.prepare("SELECT COUNT(*) AS count FROM messages WHERE thread_id=?1 AND direction='inbound' AND is_read=0")
-    .bind(row.thread_id)
+  const unread = await env.DB.prepare("SELECT COUNT(*) AS count FROM messages WHERE thread_id=?1 AND mailbox_id=?2 AND direction='inbound' AND is_read=0")
+    .bind(row.thread_id, provider.accountId)
     .first<{ count: number }>();
   const newlyReadCount = unread?.count ?? 0;
   if (newlyReadCount > 0) {
     await env.DB.batch([
-      env.DB.prepare("UPDATE messages SET is_read=1 WHERE thread_id=?1 AND direction='inbound' AND is_read=0").bind(row.thread_id),
-      env.DB.prepare("UPDATE threads SET is_read=1 WHERE id=?1").bind(row.thread_id),
+      env.DB.prepare("UPDATE messages SET is_read=1 WHERE thread_id=?1 AND mailbox_id=?2 AND direction='inbound' AND is_read=0").bind(row.thread_id, provider.accountId),
+      env.DB.prepare("UPDATE threads SET is_read=1 WHERE id=?1 AND mailbox_id=?2").bind(row.thread_id, provider.accountId),
     ]);
   }
 
-  const threadRows = await env.DB.prepare(`SELECT id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,bcc_addresses,subject,preview,body_text,body_html,received_at,sent_at,is_read,is_starred,is_archived,is_deleted,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status,delivery_error FROM messages WHERE thread_id=?1 ORDER BY COALESCE(sent_at,received_at) ASC LIMIT 100`)
-    .bind(row.thread_id)
+  const threadRows = await env.DB.prepare(`SELECT id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,bcc_addresses,subject,preview,body_text,body_html,received_at,sent_at,is_read,is_starred,is_archived,is_deleted,is_junk,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status,delivery_error FROM messages WHERE thread_id=?1 AND mailbox_id=?2 ORDER BY COALESCE(sent_at,received_at) ASC LIMIT 100`)
+    .bind(row.thread_id, provider.accountId)
     .all<MessageRow>();
   const ids = threadRows.results.map((entry) => entry.id);
   const attachmentMap = new Map<string, AttachmentRow[]>();
