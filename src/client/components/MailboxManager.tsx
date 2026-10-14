@@ -127,7 +127,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
     } finally { setBusy(null); }
   }
 
-  async function setCustomPassword(box: Mailbox) {
+  async function submitCustomPassword(box: Mailbox) {
     if (customPassword.length < 16 || customPassword.length > 128) {
       setNotice("Choose a password between 16 and 128 characters"); return;
     }
@@ -182,7 +182,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
                 </small>
                 {passwordFor===box.id && !box.deleted_at ? (
                   <form className="mailbox-password-form" onSubmit={event => {
-                    event.preventDefault();void setCustomPassword(box);
+                    event.preventDefault();void submitCustomPassword(box);
                   }}>
                     <label htmlFor={`password-${box.id}`}>New password
                       <input id={`password-${box.id}`} type={showPassword?"text":"password"}
