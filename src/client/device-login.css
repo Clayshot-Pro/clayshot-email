@@ -9,3 +9,19 @@
 .account-login-modal { max-width: 460px; }
 .mailbox-generated-password { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border, #65574c); border-radius: 10px; background: var(--surface, #302a26); overflow-wrap: anywhere; }
 .mailbox-generated-password code { display: block; padding: 10px; border-radius: 7px; font-size: 0.9rem; user-select: all; background: rgba(224, 130, 53, 0.13); }
+
+
+/* v2.02: standalone administrator experience and explicit credential editors. */
+.admin-home { min-height:100dvh; padding:clamp(16px,3vw,42px); background:var(--bg,#251f1b); color:var(--text,#f4ece5); }
+.admin-home-card { max-width:1050px; margin:0 auto; display:grid; gap:24px; }
+.admin-home-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px; padding:24px; border-radius:16px; background:var(--surface,#302a26); border:1px solid var(--border,#65574c); }
+.admin-home-header h1 { margin:4px 0 8px; font-size:clamp(1.4rem,3vw,2rem); }
+.admin-home-header p { margin-bottom:0; }
+.admin-home-header .auth-secondary { width:auto; white-space:nowrap; }
+.admin-home .settings-section { background:var(--surface,#302a26); border:1px solid var(--border,#65574c); border-radius:14px; padding:clamp(14px,3vw,22px); }
+.admin-password-form { display:grid; gap:12px; max-width:470px; margin-top:14px; }
+.admin-password-form label,.mailbox-password-form label { display:grid; gap:7px; font-weight:500; }
+.admin-password-form input,.mailbox-password-form input:not([type="checkbox"]) { width:100%; min-width:0; padding:11px; border:1px solid var(--border,#65574c); border-radius:9px; background:var(--bg,#251f1b); color:var(--text,#f4ece5); font:inherit; }
+.mailbox-password-form { display:grid; gap:10px; margin-top:12px; padding:14px; border-radius:12px; border:1px solid var(--border,#65574c); }
+.mailbox-password-form .mailbox-password-show { display:flex; flex-direction:row; align-items:center; gap:8px; font-size:.86rem; }
+@media(max-width:580px) {.admin-home-header {align-items:stretch;} .admin-home-header .auth-secondary {width:100%;}}
