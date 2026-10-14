@@ -159,3 +159,19 @@ export async function purgeNativeMailbox(env: Env, id: string): Promise<Response
   return Response.json({ complete: true });
 }
 
+
+
+/** Daily purge is opt-in; production must have a verified R2+D1 backup first. */
+export async function purgeExpiredNativeMailboxes(env: Env): Promise<void> {
+  const expired = await env.DB.prepare(
+    "SELECT id FROM native_mailboxes WHERE deleted_at IS NOT NULL AND purge_after<=CURRENT_TIMESTAMP ORDER BY purge_after LIMIT 10"
+  ).all<{id:string}>();
+  for (const { id } of expired.results) {
+    for (let batch = 0; batch < 10; batch++) {
+      const result = await purgeNativeMailbox(env, id);
+      if (!result.ok) break;
+      const payload = await result.json() as {complete?:boolean};
+      if (payload.complete) break;
+    }
+  }
+}
