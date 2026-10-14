@@ -65,6 +65,7 @@ export function App() {
   const persistedDraftIds = useRef(new Set<string>());
   const detailCache = useRef(new Map<string, DetailCacheEntry>());
   const openRequest = useRef(0);
+  const listRequest = useRef(0);
 
   const detailCacheKey = useCallback(
     (id: string) => `${activeAccountId}:${id}`,
@@ -156,6 +157,7 @@ export function App() {
 
   const loadMessages = useCallback(
     async (activeFolder = folder, query = search, silent = false) => {
+      const requestId = ++listRequest.current;
       if (!silent) {
         setLoading(true);
         setError(null);
@@ -175,15 +177,16 @@ export function App() {
           unreadCount: number;
           draftCount: number;
         };
+        if (requestId !== listRequest.current) return;
         setMessages(data.messages);
         setUnreadCount(data.unreadCount);
         setDraftCount(data.draftCount);
       } catch (caught) {
-        if (!silent) {
+        if (!silent && requestId === listRequest.current) {
           setError(caught instanceof Error ? caught.message : "Could not load mail");
         }
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent && requestId === listRequest.current) setLoading(false);
       }
     },
     [folder, search, activeAccountId],
@@ -232,6 +235,11 @@ export function App() {
 
   const switchAccount = (id: string) => {
     openRequest.current += 1;
+    listRequest.current += 1;
+    setMessages([]);
+    setUnreadCount(0);
+    setDraftCount(0);
+    setLoading(true);
     setActiveAccountId(id);
     setSelected(null);
     setThread([]);
