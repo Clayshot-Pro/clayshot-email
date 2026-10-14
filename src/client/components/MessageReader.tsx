@@ -12,6 +12,7 @@ type MessageReaderProps = {
   folderLabel: string;
   loading?: boolean;
   onBack: () => void;
+  accountId: string;
   onReply: () => void;
   onForward: () => void;
   onPatch: (patch: Record<string, boolean>, closeAfter?: boolean) => void;
@@ -56,7 +57,7 @@ function RichEmailBody({ html }: { html: string }) {
   );
 }
 
-export function MessageReader({ message, thread, folderLabel, loading = false, onBack, onReply, onForward, onPatch }: MessageReaderProps) {
+export function MessageReader({ message, thread, folderLabel, loading = false, accountId, onBack, onReply, onForward, onPatch }: MessageReaderProps) {
   const [previewAttachment, setPreviewAttachment] = useState<MessageDetail["attachments"][number] | null>(null);
 
   if (loading && !message) {
@@ -139,7 +140,7 @@ export function MessageReader({ message, thread, folderLabel, loading = false, o
                 </div>
                 <div className="attachment-grid">
                   {item.attachments.map((attachment) => {
-                    const previewHref = `/api/attachment-previews/${encodeURIComponent(attachment.id)}`;
+                    const previewHref = `/api/attachment-previews/${encodeURIComponent(attachment.id)}?accountId=${encodeURIComponent(accountId)}`;
                     const isImage = ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(attachment.contentType);
                     return (
                       <button
@@ -175,7 +176,7 @@ export function MessageReader({ message, thread, folderLabel, loading = false, o
         )}
       </footer>
 
-      <AttachmentPreview attachment={previewAttachment} onClose={() => setPreviewAttachment(null)}/>
+      <AttachmentPreview attachment={previewAttachment} accountId={accountId} onClose={() => setPreviewAttachment(null)}/>
     </section>
   );
 }
