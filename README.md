@@ -82,6 +82,10 @@ scripts/                    build/asset and deployment helper scripts
 .github/workflows/          version-branch validation and security scanning
 ```
 
+## v2.02: Reserved admin login with mandatory 2FA
+
+Sign in as **`admin@liamthemo.com`** using an administrator password followed by the existing owner passkey. Successful login opens a standalone administration dashboard instead of the mail inbox. The administrator can choose passwords for individual mailboxes or generate replacements; both operations revoke the affected mailbox's saved device sessions. Initial admin password setup uses the existing passkey, then disables passkey-only access. [Administrator setup and MFA security](./docs/multi-mailbox/ADMIN_MFA.md).
+
 ## v2.01: Device-specific sign-ins and owner administration
 
 The optional `v2.01` upgrade introduces **separate account sign-ins per device**: Google OAuth and custom email/password on the sign-in screen, and a distinct, owner-passkey-protected admin panel for creating and managing custom addresses. Existing Google mail credentials remain encrypted server-side and are only exposed after that device authorizes its account. [Architecture, migration and validation](./docs/multi-mailbox/DEVICE_SIGNIN_ADMIN.md).

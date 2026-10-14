@@ -1,7 +1,8 @@
+import { beginAdminLogin, adminPasswordConfigured, saveAdminPassword } from "./adminAuth";
 import { reconcileMailboxUsage } from "./usage";
 import {
   deviceStatus, deviceLogin, deviceLogout, deviceRemoveAccount, deviceAccountIds,
-  deviceAuthorized, adminAuthorized, rotateMailboxPassword, cleanupDeviceSessions,
+  deviceAuthorized, adminAuthorized, rotateMailboxPassword, setMailboxPassword, cleanupDeviceSessions,
 } from "./deviceAuth";
 import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox, purgeExpiredNativeMailboxes } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
@@ -37,6 +38,7 @@ const AUTH_POSTS = new Set([
   "/api/auth/register/verify",
   "/api/auth/login/options",
   "/api/auth/login/verify",
+  "/api/admin/login/password",
 ]);
 const MAX_API_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -98,6 +100,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   // Device authentication is independent from the privileged owner passkey.
   if (url.pathname === "/api/device/status" && request.method === "GET") return deviceStatus(request, env);
   if (url.pathname === "/api/device/login" && request.method === "POST") return deviceLogin(request, env);
+  if (url.pathname === "/api/admin/login/password" && request.method === "POST") return beginAdminLogin(request, env);
   if (url.pathname === "/api/device/logout" && request.method === "POST") return deviceLogout(request, env);
 
   // Authentication routes that must be reachable before a session exists.
@@ -117,6 +120,19 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     deviceAccountIds(request, env),
   ]);
   if (!isAdmin && accountIds.length === 0) return unauthorizedResponse();
+  if (url.pathname === "/api/admin/password" && request.method === "POST") {
+    if (!isAdmin) return jsonError("Administrator verification required", 403);
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "admin-change-password"))))
+      return jsonError("Too many attempts", 429);
+    const payload = await request.json().catch(() => null) as { newPassword?:unknown;currentPassword?:unknown } | null;
+    const outcome = await saveAdminPassword(env,payload?.newPassword,payload?.currentPassword);
+    if (outcome.error) return jsonError(outcome.error, 400);
+    const response = await logout(request, env);
+    return Response.json({ok:true,reloginRequired:true},{headers: response.headers});
+  }
+  if (url.pathname === "/api/admin/status" && request.method === "GET") {
+    return Response.json({passwordConfigured:await adminPasswordConfigured(env)});
+  }
 
   const adminRoute = url.pathname === "/api/mailboxes"
     || url.pathname.startsWith("/api/mailboxes/")
@@ -144,8 +160,18 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     if (!id) return jsonError("Invalid mailbox ID", 400);
     if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailbox-password-reset"))))
       return jsonError("Too many requests", 429);
-    try { return Response.json({ password: await rotateMailboxPassword(env, id) }, { headers: { "Cache-Control": "no-store" } }); }
-    catch { return jsonError("Mailbox not found or unavailable", 404); }
+    const payload = await request.json().catch(() => null) as {password?:unknown} | null;
+    const manual = payload && Object.prototype.hasOwnProperty.call(payload,"password");
+    if (manual && typeof payload.password !== "string") return jsonError("Invalid password",400);
+    try {
+      if (manual) {
+        await setMailboxPassword(env,id,payload!.password as string);
+        return Response.json({ok:true},{headers:{"Cache-Control":"no-store"}});
+      }
+      return Response.json({password:await rotateMailboxPassword(env,id)},{headers:{"Cache-Control":"no-store"}});
+    } catch(error) {
+      return jsonError(error instanceof Error?error.message:"Could not update mailbox password",400);
+    }
   }
 
   // Validate the mailbox against the CURRENT device before dispatching any

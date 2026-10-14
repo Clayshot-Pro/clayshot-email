@@ -1,6 +1,4 @@
 import { AccountSignIn } from "./AccountSignIn";
-import { unlockOwnerPasskey } from "./adminPasskey";
-import { AdminPanel } from "./components/AdminPanel";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AUTO_REFRESH_MS,
@@ -57,7 +55,6 @@ export function App() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [addCustomOpen, setAddCustomOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState(NATIVE_ACCOUNT_ID);
   const [connectingGmail, setConnectingGmail] = useState(false);
@@ -431,16 +428,6 @@ export function App() {
     setSettingsBusy("logout");
     await fetch("/api/device/logout", { method: "POST" }).catch(() => undefined);
     location.reload();
-  };
-
-  const unlockAdmin = async () => {
-    setSettingsBusy("admin-unlock");
-    try {
-      await unlockOwnerPasskey();
-      window.location.reload();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Administrator passkey sign-in failed");
-    } finally { setSettingsBusy(null); }
   };
 
   const openMessage = async (id: string) => {
@@ -834,8 +821,6 @@ export function App() {
         sessionCount={sessionCount}
         busy={settingsBusy}
         isAdmin={isAdmin}
-        onOpenAdmin={() => { setSettingsOpen(false); setAdminOpen(true); }}
-        onUnlockAdmin={() => void unlockAdmin()}
         onAddCustom={() => { setSettingsOpen(false); setAddCustomOpen(true); }}
         onClose={() => setSettingsOpen(false)}
         onToggleNotifications={() => void toggleNotifications()}
@@ -852,10 +837,6 @@ export function App() {
         onResetSessions={() => void resetSessions()}
         onLogout={() => void logout()}
       />
-      {isAdmin && adminOpen && <AdminPanel
-        onClose={() => setAdminOpen(false)}
-        onMailboxesChanged={() => { void refreshAccounts(); }}
-      />}
       {addCustomOpen && <div className="settings-backdrop" role="presentation" onMouseDown={event => {
         if (event.currentTarget === event.target) setAddCustomOpen(false);
       }}>

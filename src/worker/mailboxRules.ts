@@ -1,6 +1,6 @@
 /** Shared, dependency-free address validation for inbound and login. */
 const DOMAIN = "liamthemo.com";
-const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root"]);
+const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root", "admin"]);
 
 export function normalizeMailboxAddress(value: string, allowReserved = false): string | null {
   const address = value.trim().toLowerCase();
