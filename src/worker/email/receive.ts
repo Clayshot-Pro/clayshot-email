@@ -116,7 +116,7 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   // R2. A conditional D1 update is atomic across concurrent deliveries.
   const storageBytes = raw.byteLength + parsedAttachments.reduce((sum, part) => sum + part.bytes.byteLength, 0);
   const quotaReservation = await env.DB.prepare(
-    "UPDATE native_mailboxes SET used_bytes = used_bytes + ?1 WHERE id = ?2 AND status = 'active' AND used_bytes + ?1 <= quota_bytes"
+    "UPDATE native_mailboxes SET used_bytes = used_bytes + ?1, usage_version = usage_version + 1 WHERE id = ?2 AND status = 'active' AND used_bytes + ?1 <= quota_bytes"
   ).bind(storageBytes, mailbox.id).run();
   if (!quotaReservation.meta.changes) {
     reject(message, "Mailbox storage quota exceeded");
@@ -142,7 +142,7 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
     await Promise.allSettled([
       env.MAIL.delete(key),
       ...rows.map(row => env.MAIL.delete(row.key)),
-      env.DB.prepare("UPDATE native_mailboxes SET used_bytes = MAX(0, used_bytes - ?1) WHERE id = ?2")
+      env.DB.prepare("UPDATE native_mailboxes SET used_bytes = MAX(0, used_bytes - ?1), usage_version = usage_version + 1 WHERE id = ?2")
         .bind(storageBytes, mailbox.id).run(),
     ]);
     reject(message, "Message could not be stored");
