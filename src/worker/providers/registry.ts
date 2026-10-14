@@ -11,6 +11,7 @@ export type ConnectedAccount = {
   avatarUrl: string | null;
   status: "active" | "reauth_required" | "disabled";
   lastSyncedAt: string | null;
+  sendEnabled?: boolean;
 };
 
 type AccountRow = {
@@ -57,6 +58,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: box.id === NATIVE_ACCOUNT_ID ? "/api/profile/photo" : null,
       status: box.status,
       lastSyncedAt: null,
+      sendEnabled: box.id === NATIVE_ACCOUNT_ID,
     })),
     ...result.results.map((row) => ({
       id: row.id,
@@ -66,6 +68,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: `/api/accounts/${encodeURIComponent(row.id)}/avatar`,
       status: row.status,
       lastSyncedAt: row.last_synced_at,
+      sendEnabled: true,
     })),
   ];
 }
