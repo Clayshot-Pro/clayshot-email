@@ -99,16 +99,6 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   // received RFC IDs in original_message_id so concurrent multi-recipient
   // deliveries cannot collide on the old unique constraint.
   const storedMessageId = null;
-  // Reserve the raw MIME plus extracted attachment bytes before writing to
-  // R2. A conditional D1 update is atomic across concurrent deliveries.
-  const storageBytes = raw.byteLength + parsedAttachments.reduce((sum, part) => sum + part.bytes.byteLength, 0);
-  const quotaReservation = await env.DB.prepare(
-    "UPDATE native_mailboxes SET used_bytes = used_bytes + ?1 WHERE id = ?2 AND status = 'active' AND used_bytes + ?1 <= quota_bytes"
-  ).bind(storageBytes, mailbox.id).run();
-  if (!quotaReservation.meta.changes) {
-    reject(message, "Mailbox storage quota exceeded");
-    return;
-  }
   const inReplyTo = (parsed.inReplyTo?.trim() || message.headers.get("in-reply-to")?.trim() || null)?.slice(0, 998) || null;
   const references = (parsed.references?.trim() || message.headers.get("references")?.trim() || null)?.slice(0, 8192) || null;
   const sender = parsed.from;
@@ -119,6 +109,17 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const threadId = await resolveThreadId(env, mailbox.id, inReplyTo, references);
   const key = `emails/${mailbox.id.replace(":", "_")}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${String(now.getUTCDate()).padStart(2, "0")}/${id}/raw.eml`;
   const rows: Array<{ id: string; filename: string; mimeType: string; size: number; key: string }> = [];
+
+  // Reserve the raw MIME plus extracted attachment bytes before writing to
+  // R2. A conditional D1 update is atomic across concurrent deliveries.
+  const storageBytes = raw.byteLength + parsedAttachments.reduce((sum, part) => sum + part.bytes.byteLength, 0);
+  const quotaReservation = await env.DB.prepare(
+    "UPDATE native_mailboxes SET used_bytes = used_bytes + ?1 WHERE id = ?2 AND status = 'active' AND used_bytes + ?1 <= quota_bytes"
+  ).bind(storageBytes, mailbox.id).run();
+  if (!quotaReservation.meta.changes) {
+    reject(message, "Mailbox storage quota exceeded");
+    return;
+  }
 
   try {
     await env.MAIL.put(key, raw, { httpMetadata: { contentType: "message/rfc822" }, customMetadata: { messageId: headerMessageId.slice(0, 512) } });
