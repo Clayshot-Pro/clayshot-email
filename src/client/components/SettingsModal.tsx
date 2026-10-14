@@ -11,8 +11,6 @@ type Props = {
   busy: string | null;
   onClose: () => void;
   isAdmin: boolean;
-  onOpenAdmin: () => void;
-  onUnlockAdmin: () => void;
   onAddCustom: () => void;
   onToggleNotifications: () => void;
   onConnectGmail: () => void;
@@ -108,15 +106,8 @@ export function SettingsModal(props: Props) {
 
           <section className="settings-section">
             <h3>Add email account</h3>
-            <p>Accounts stay signed in on this device only. Removing one here does not sign it out on your other devices.</p>
+            <p>Accounts stay signed in on this device only. For administration, add `admin@liamthemo.com` as a custom sign-in; it opens a separate dashboard after password and passkey verification.</p>
             <button className="settings-primary" type="button" onClick={props.onAddCustom}>Add custom email</button>
-          </section>
-          <section className="settings-section">
-            <h3>Administration</h3>
-            <p>Creating new email addresses and resetting their passwords requires your owner passkey.</p>
-            <button type="button" className="settings-primary" onClick={props.isAdmin ? props.onOpenAdmin : props.onUnlockAdmin}>
-              {props.isAdmin ? "Open admin panel" : "Unlock with administrator passkey"}
-            </button>
           </section>
 
           <section className="settings-section">

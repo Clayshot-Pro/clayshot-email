@@ -1,9 +1,10 @@
+import { AdminPanel } from "./components/AdminPanel";
 import { startRegistration } from "@simplewebauthn/browser";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { AccountSignIn } from "./AccountSignIn";
 import { unlockOwnerPasskey } from "./adminPasskey";
 
-type AuthStatus = { configured: boolean; authenticated: boolean; setupAvailable: boolean };
+type AuthStatus = { configured: boolean; authenticated: boolean; setupAvailable: boolean; adminPasswordConfigured:boolean };
 type DeviceStatus = { authenticated: boolean; isAdmin: boolean; accountCount: number };
 type Registration = { challengeId: string; options: Parameters<typeof startRegistration>[0]["optionsJSON"] };
 async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -68,6 +69,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     finally { setBusy(false); }
   }
 
+  if (device?.isAdmin) return <AdminPanel />;
   if (device?.authenticated && device.accountCount > 0) return <>{children}</>;
   return <main className="auth-shell">
     <section className="auth-card" aria-live="polite">
@@ -75,16 +77,16 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <div className="auth-heading">
         <p className="auth-eyebrow">Your mail on this device</p>
         <h1>LTM Mails</h1>
-        <p>Sign in to Google or a custom email address. Only accounts added on this device appear here.</p>
+        <p>Sign in to a saved email account. Use admin@liamthemo.com with your password and passkey for administration.</p>
       </div>
       {!device || !owner ? <div className="auth-state">Checking saved sessions…</div> : <>
         <AccountSignIn onSignedIn={() => void refresh()} />
-        <div className="account-signin-divider"><span>Administration</span></div>
-        {owner.configured ? (
+        {!owner.adminPasswordConfigured && <div className="account-signin-divider"><span>Administrator setup</span></div>}
+        {owner.configured && !owner.adminPasswordConfigured ? (
           <button className="auth-secondary" disabled={busy} type="button" onClick={() => void adminLogin()}>
-            {busy ? "Verifying…" : "Administrator sign-in with passkey"}
+            {busy ? "Verifying…" : "Set up admin password using passkey"}
           </button>
-        ) : owner.setupAvailable ? (
+        ) : !owner.configured && owner.setupAvailable ? (
           <div className="auth-setup">
             <label htmlFor="setup-token">One-time administrator setup secret</label>
             <input id="setup-token" type="password" value={setupToken} autoComplete="off"

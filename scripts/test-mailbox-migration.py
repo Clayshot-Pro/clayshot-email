@@ -184,3 +184,24 @@ assert db.execute("SELECT COUNT(*) FROM device_session_accounts WHERE session_id
 db.execute("DELETE FROM native_mailbox_credentials WHERE mailbox_id=?", (box,))
 assert db.execute("SELECT COUNT(*) FROM native_mailboxes WHERE id=?", (box,)).fetchone()[0] == 1
 print("PASS: isolated per-device grants, schema and session cascade")
+
+# v2.02 administrator password must be a distinct identity requiring both
+# a verified password and WebAuthn challenge, never a normal email mailbox.
+assert db.execute("SELECT COUNT(*) FROM admin_credentials").fetchone()[0] == 0
+assert "admin_pending_hash" in [row[1] for row in db.execute("PRAGMA table_info(auth_challenges)")]
+db.execute("""INSERT INTO admin_credentials (id,password_salt,password_hash,iterations)
+    VALUES (1,?,?,?)""",("salt-fixture","hash-fixture",310000))
+try:
+    db.execute("""INSERT INTO admin_credentials (id,password_salt,password_hash,iterations)
+        VALUES (2,?,?,?)""",("other","other",310000))
+except sqlite3.IntegrityError:
+    pass
+else:
+    raise AssertionError("Only one administrator identity must be supported")
+db.execute("""INSERT INTO admin_login_pending(token_hash,expires_at)
+    VALUES (?,datetime('now','+5 minutes'))""",("token-unique-fixture",))
+assert db.execute("""DELETE FROM admin_login_pending
+    WHERE token_hash=? AND expires_at>datetime('now') RETURNING token_hash""",
+    ("token-unique-fixture",)).fetchone()[0] == "token-unique-fixture"
+assert db.execute("SELECT COUNT(*) FROM admin_login_pending").fetchone()[0] == 0
+print("PASS: admin MFA credential isolation and one-time password proof")
