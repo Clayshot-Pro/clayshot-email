@@ -22,7 +22,7 @@
 5. **Native Junk classifier:** The schema/flag and folder are available, but automatic spam classification is not implemented. Gmail's Junk remains backed by Gmail Spam.
 6. **Deletion:** Owner can disable/reactivate a non-primary mailbox. Permanent deletion, backup/export/retention and object reconciliation are deliberately deferred to avoid destructive migrations.
 7. **Runtime e2e and device coverage:** No verified live mail tests yet for a new recipient, reply/forward, attachments, iPhone/iPad PWA, or Gmail regression.
-8. **Build previews:** Cloudflare reports non-production branch build failures even when GitHub build/security workflows pass. Read private Cloudflare preview logs and fix any actionable failure before trusting previews.
+8. **Build previews:** Cloudflare reports non-production branch build failures even when GitHub build/security workflows pass. This repository uses Wrangler `^4.130.0`, while newer Cloudflare Worker Previews require `4.135.0` or later. Inspect the private build logs before attributing failures. To enforce production-only deployments, disable **Enable Preview Builds** in Cloudflare Worker > Settings > Build > Branch control, leaving `main` as the production branch. See https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/.
 
 ## Launch procedure (do not skip gates)
 
