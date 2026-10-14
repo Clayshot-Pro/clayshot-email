@@ -150,7 +150,9 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   if (lifecycleRoute && request.method === "POST") {
     const id = decodePathSegment(lifecycleRoute[1]);
     if (!id) return jsonError("Invalid mailbox ID", 400);
-    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:" + lifecycleRoute[2]))))
+    // Purge is bounded to 50 messages per call and may need many invocations.
+    // Restore is rate-limited; both routes require the owner session.
+    if (lifecycleRoute[2] === "restore" && !(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:restore"))))
       return jsonError("Too many mailbox operations", 429);
     return lifecycleRoute[2] === "restore" ? restoreNativeMailbox(env, id) : purgeNativeMailbox(env, id);
   }
