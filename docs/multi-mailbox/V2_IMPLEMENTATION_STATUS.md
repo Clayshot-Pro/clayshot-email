@@ -1,41 +1,41 @@
-# v2.00 implementation status and rollout gates
+# v2.00 multi-mailbox implementation status
 
-**Status on 2026-10-13:** Implementation in progress on `feature/v2.00-native-multi-mailbox-foundation` targeting the permanent `v2.00` checkpoint. Production `main` is unchanged.
+**Status:** Code implemented on the `v2.00` development line; production `main` intentionally remains at the previous release until Cloudflare and data-protection gates are satisfied. This file describes implementation, not a claim of production functionality.
 
-## Implemented in the feature branch
+## Completed / Passed — code and automated validation
 
-- Additive `0010_native_mailboxes.sql` migration: native mailbox registry, mailbox IDs on legacy message/thread/draft rows, original inbound RFC Message-ID, native Junk flag and scoped indexes.
-- Existing `native:primary` and its stored rows remain the default primary mailbox; existing Gmail provider code and OAuth tables are preserved.
-- Owner-authenticated create/list/disable/enable APIs and Settings mailbox-management interface. New native mailbox rows are not independent users, logins, IMAP accounts or SMTP credentials.
-- Server-side mailbox scoping for native list, detail, thread, read/star/junk/archive/trash, drafts, forwarding source, outgoing persistence, attachments, and account-specific folder counters.
-- Envelope recipient lookup at the Email Worker and rejection of unknown/disabled recipients.
-- Per-mailbox original Message-ID deduplication, including separate delivery of the same RFC Message-ID to different mailboxes.
-- Sending from additional native addresses is **blocked**. The existing `contact@` sender continues to use its configured Cloudflare binding. UI identifies new addresses as receive-only.
-- Offline SQLite regression test included in GitHub validation; checks legacy backfill, per-mailbox delivery uniqueness, independent flags and case-insensitive mailbox identity.
+- D1 migrations `0010`, `0011`, and `0012`: native mailbox identity, mailbox-scoped threads, messages, drafts, Junk, quota, recovery lifecycle, sending receipts, inbound retry receipts and audit events.
+- Existing `contact@liamthemo.com` data defaults to `native:primary`; optional Gmail-connected accounts and owner passkey sessions are preserved.
+- Authenticated native mailbox management: create any permitted domain address, update display name, quota or optional Junk heuristic, disable/reactivate, schedule deletion, restore within 30 days, and irreversible paginated purge after expiry. The primary mailbox cannot be deleted.
+- UI account switching, independent mailbox folder views, search, counters, message flags, drafts, thread state and authorized R2 attachment access.
+- Recipient routing via the actual SMTP envelope recipient. Exact mailbox match wins; unregistered/disabled addresses are rejected. Supports plus-address suffix fallback to an active parent mailbox and RFC postmaster/abuse aliases to the primary mailbox.
+- Inbound content stored in R2 and D1, with conditional quota reservations, cleanup on failure, and retry fingerprints derived from MIME and envelope recipient rather than trusting the sender's RFC Message-ID. Duplicates across genuinely distinct mailboxes are independently stored.
+- Native high-confidence optional Junk categorization; no messages are destroyed by the classifier; manual Junk and Not Junk remain available.
+- Outbound sending uses authenticated active native mailboxes, server-derived From identity, display names, idempotent client send keys, per-mailbox rate/daily limits, and approximate quota reservation including outgoing bodies and R2 attachments. Accepted sends are not automatically retried after local persistence failure.
+- Existing primary sender retains the restricted `EMAIL` Cloudflare binding. Additional native senders use a distinct `EMAIL_MULTI` binding and are **disabled unless** the Worker secret `MULTI_SENDER_APPROVED` is exactly `true`.
+- Retention cleanup can run daily using the main-deployed Cloudflare cron. Automatic irreversible deletion is **off unless** the Worker secret `MAILBOX_PURGE_ENABLED` is exactly `true`. User-requested post-grace purge remains possible in the web UI.
+- Authenticated R2 usage recount reads real stored object sizes in bounded batches, detects missing objects, checks for concurrent mailbox changes, and refuses to overwrite counters if reconciliation is unreliable.
+- GitHub Actions validates TypeScript, production bundle, full-history security and the SQLite legacy migration/regression test. These are not substitutes for live Cloudflare binding tests.
 
-## Intentionally not yet complete
+## Requires Manual Validation — owner/Cloudflare
 
-1. **Real outbound from created addresses:** Cloudflare says Email Sending is intended for transactional email. Receive-only is not a complete solution for arbitrary personal/business correspondence; require written provider confirmation and then sender-binding security changes before enabling new senders.
-2. **Catch-all routing:** Production Cloudflare Email Routing/DNS settings must be inspected for precedence and configured to route unregistered domain local parts to this Worker. No DNS or routing change was made from the repository. Without the catch-all route, newly created addresses might not receive any mail.
-3. **Live migration:** D1 backup, R2 integrity/backups, message/attachment count reconciliation and production migration smoke tests remain unverified.
-4. **Account quotas:** Incoming storage reserves raw MIME plus extracted attachment bytes atomically; legacy stored content is backfilled using a metadata-size **estimate**, and historical R2 bytes still require a private inventory and reconciliation. Outgoing attachments and deletion/retention usage accounting are not yet complete; avoid claiming exact usage.
-5. **Native Junk classifier:** The schema/flag and folder are available, but automatic spam classification is not implemented. Gmail's Junk remains backed by Gmail Spam.
-6. **Deletion:** Owner can disable/reactivate a non-primary mailbox. Permanent deletion, backup/export/retention and object reconciliation are deliberately deferred to avoid destructive migrations.
-7. **Runtime e2e and device coverage:** No verified live mail tests yet for a new recipient, reply/forward, attachments, iPhone/iPad PWA, or Gmail regression.
-8. **Build previews:** Cloudflare reports non-production branch build failures even when GitHub build/security workflows pass. This repository uses Wrangler `^4.130.0`, while newer Cloudflare Worker Previews require `4.135.0` or later. Inspect the private build logs before attributing failures. To enforce production-only deployments, disable **Enable Preview Builds** in Cloudflare Worker > Settings > Build > Branch control, leaving `main` as the production branch. See https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/.
+1. **Cloudflare service policy:** Obtain explicit answer from Cloudflare about arbitrary person-to-person and business sending using Email Sending. Its published documentation still describes **transactional-only** usage. Without approval, leave multi-sender feature off.
+2. **Existing production data:** Independently back up and restore-test the production D1 database and R2 bucket; verify historical messages, attachments and Gmail accounts. The migration's historical storage counter is an estimate until the post-deploy R2 recount.
+3. **Cloudflare builds:** Set production branch `main` and disable preview builds on other branches. Non-main preview checks currently report failures even though GitHub's code checks can pass. Inspect private Cloudflare preview logs if they remain enabled.
+4. **Production migration:** Apply D1 migrations on `main` only through the existing Cloudflare Workers Build process; confirm the real D1 binding is hydrated from the deployed Worker settings. Do not apply to the wrong D1 database.
+5. **Catch-all:** After successful production deployment, configure Email Routing Catch-all to **Send to a Worker → ltm-email-service**, checking that the existing exact `contact@` rule remains routed correctly.
+6. **Outbound activation:** After Cloudflare permits the specific use case and Email Sending domain authentication is verified, set `MULTI_SENDER_APPROVED=true` as a Worker secret and test different senders, replies, attachments, delivery logs and bounces.
+7. **Automated retention:** Enable `MAILBOX_PURGE_ENABLED=true` only after proven D1+R2 restore; otherwise leave automatic purges off.
+8. **End-to-end devices:** Test desktop, iPhone PWA and iPad. Confirm old contact mail, connected Gmail, native mailbox switching, recipient routing, spam, dedup, quotas, attachment safety, restores and production notifications.
 
-## Launch procedure (do not skip gates)
+## Incomplete / Needs Work — blocked externally
 
-1. Confirm current Cloudflare routing and sender authorization settings without exposing secrets.
-2. Back up and independently verify recovery of D1 and R2; inspect old native and Gmail data counts privately.
-3. Validate the v2.00 GitHub build, security scan, and offline migration test; review pull request feedback.
-4. Use a staging environment with real bindings to apply migrations and verify primary and new recipient isolation. Do not use the live primary mailbox as a destructive fixture.
-5. Configure domain catch-all routing to the Worker **only after** confirming the existing explicit `contact@` rule will not regress.
-6. Verify creation, receive, unknown-recipient rejection, duplicate Message-ID delivery, draft isolation, attachments, flags, notifications, Gmail and mobile use.
-7. Only if Cloudflare confirms the general-purpose sending policy: implement audited sender authorization, update Workers binding for safe dynamic sender support and test outbound with SPF/DKIM/DMARC.
-8. Commit/merge temporary branch into `v2.00`, run its checks, then merge `v2.00` into `main` for Cloudflare Workers Builds production deployment. Confirm deployment, production health, and delivery with real external test messages.
-9. Final audit classifications: **Completed / Passed**, **Requires Manual Validation**, and **Incomplete / Needs Work**, with evidence. Do not mark project complete until all requested mail functionality works.
+- Real-world ordinary correspondence from newly created addresses: policy and Cloudflare domain/binding validation are external requirements.
+- Production rollout and its Cloudflare build/health/live email smoke test: intentionally withheld until the data backup, routing and sender policy gates are satisfied.
+- Large-scale use, bounce observability, bulk export and recovery from every conceivable partial D1/R2 failure must be evaluated using the live Cloudflare account; automated CI cannot claim them verified.
 
-## Current architecture note
+## Where to continue
 
-This implementation deliberately keeps a **single owner passkey identity** and many address mailboxes. Each address remains accessible through the same web app session. User-to-user login isolation, SMTP/IMAP credentials, commercial customer registration, and mail server hosting remain out of scope.
+Follow [Cloudflare setup in exact order](./CLOUDFLARE_SETUP.md), then the [implementation test matrix](./IMPLEMENTATION_PLAN.md).
+
+Architecture remains **one passkey-authenticated owner with multiple native email addresses via the Cloudflare-hosted web app**, not independent user logins or IMAP/SMTP accounts. No VPS is required.
