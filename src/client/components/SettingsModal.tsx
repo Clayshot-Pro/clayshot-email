@@ -1,3 +1,4 @@
+import { MailboxManager } from "./MailboxManager";
 import type { ConnectedAccount, NotificationState } from "../mailTypes";
 import { notificationLabel } from "../mailUtils";
 
@@ -10,6 +11,7 @@ type Props = {
   sessionCount: number | null;
   busy: string | null;
   onClose: () => void;
+  onMailboxesChanged: () => void;
   onToggleNotifications: () => void;
   onConnectGmail: () => void;
   onRemoveAccount: (id: string) => void;
@@ -80,7 +82,7 @@ export function SettingsModal(props: Props) {
                     >
                       Remove
                     </button>
-                  ) : (
+                  ) : account.id === "native:primary" ? (
                     <button
                       type="button"
                       disabled={props.busy !== null}
@@ -101,6 +103,8 @@ export function SettingsModal(props: Props) {
               {props.connectingGmail ? "Connecting…" : "Add Gmail inbox"}
             </button>
           </section>
+
+          <MailboxManager onChanged={props.onMailboxesChanged} />
 
           <section className="settings-section">
             <h3>Notifications</h3>
