@@ -6,6 +6,8 @@ assert.equal(normalizeMailboxAddress(" Personal@LIAMTHEMO.COM "), "personal@liam
 assert.equal(normalizeMailboxAddress("work"), "work@liamthemo.com");
 assert.equal(normalizeMailboxAddress("work+receipts@liamthemo.com"), "work+receipts@liamthemo.com");
 assert.equal(normalizeMailboxAddress("Admin@liamthemo.com"), "admin@liamthemo.com");
+assert.equal(normalizeMailboxAddress("postmaster@liamthemo.com", true), "postmaster@liamthemo.com");
+assert.equal(normalizeMailboxAddress("abuse@liamthemo.com", true), "abuse@liamthemo.com");
 for (const invalid of ["", "other@gmail.com", "account@liamthemo.com.evil", "../test", "x..y", "postmaster", "abuse", "@liamthemo.com"]) {
   assert.equal(normalizeMailboxAddress(invalid), null, invalid);
 }
