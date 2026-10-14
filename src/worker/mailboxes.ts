@@ -18,7 +18,6 @@ export type NativeMailbox = {
   purge_after: string | null;
   spam_filter_enabled: number;
   usage_version: number;
-  forwarded_to: string | null;
 };
 
 export function normalizeMailboxAddress(value: string): string | null {
@@ -35,7 +34,7 @@ export function normalizeMailboxAddress(value: string): string | null {
 
 export async function mailboxById(env: Env, id: string): Promise<NativeMailbox | null> {
   return env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE id = ?1"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes WHERE id = ?1"
   ).bind(id).first<NativeMailbox>();
 }
 
@@ -44,7 +43,7 @@ export async function mailboxForRecipient(env: Env, address: string): Promise<Na
   if (!normalized) return null;
   // Exact mailbox routing has priority over plus-address aliases.
   const exact = await env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address = ?1"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address = ?1"
   ).bind(normalized).first<NativeMailbox>();
   // An explicitly disabled address must not be revived by plus-alias fallback.
   if (exact) return exact.status === "active" && !exact.deleted_at ? exact : null;
@@ -57,13 +56,13 @@ export async function mailboxForRecipient(env: Env, address: string): Promise<Na
       ? `${localPart.split("+", 1)[0]}@liamthemo.com`
       : null;
   return alias ? env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address=?1 AND status='active'"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address=?1 AND status='active'"
   ).bind(alias).first<NativeMailbox>() : null;
 }
 
 export async function allNativeMailboxes(env: Env): Promise<NativeMailbox[]> {
   const result = await env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes ORDER BY CASE WHEN id='native:primary' THEN 0 ELSE 1 END, created_at"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes ORDER BY CASE WHEN id='native:primary' THEN 0 ELSE 1 END, created_at"
   ).all<NativeMailbox>();
   return result.results;
 }
