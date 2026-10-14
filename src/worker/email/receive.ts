@@ -1,3 +1,4 @@
+import { suspectedJunk } from "./junk";
 import { mailboxForRecipient, PRIMARY_MAILBOX_ID } from "../mailboxes";
 import PostalMime from "postal-mime";
 import { sendNewMailPush } from "../push";
@@ -105,6 +106,7 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const to = addresses(parsed.to);
   const cc = addresses(parsed.cc);
   const bodyText = truncateUtf8(parsed.text?.trim() || (parsed.html ? htmlToText(parsed.html) : ""), MAX_STORED_TEXT);
+  const isJunk = mailbox.spam_filter_enabled === 1 && suspectedJunk(parsed.subject ?? "", sender?.address || message.from, bodyText);
   const bodyHtml = parsed.html ? truncateUtf8(sanitizeEmailHtml(parsed.html), MAX_STORED_TEXT) || null : null;
   const threadId = await resolveThreadId(env, mailbox.id, inReplyTo, references);
   const key = `emails/${mailbox.id.replace(":", "_")}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${String(now.getUTCDate()).padStart(2, "0")}/${id}/raw.eml`;
@@ -132,7 +134,7 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
     }
     await env.DB.batch([
       env.DB.prepare("INSERT OR IGNORE INTO threads (id, subject, latest_message_at, message_count, is_read, mailbox_id) VALUES (?1, ?2, ?3, 0, 0, ?4)").bind(threadId, (parsed.subject || "(no subject)").slice(0, 998), nowIso, mailbox.id),
-      env.DB.prepare(`INSERT INTO messages (id,message_id,original_message_id,mailbox_id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,subject,preview,body_text,body_html,received_at,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status) VALUES (?1,?2,?3,?4,?5,'inbound',?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'received')`).bind(id, storedMessageId, headerMessageId, mailbox.id, threadId, (sender?.address || message.from).slice(0, 320), sender?.name?.slice(0, 320) || null, JSON.stringify(to.length ? to : [message.to]), JSON.stringify(cc), (parsed.subject || "(no subject)").slice(0, 998), safePreview(bodyText), bodyText, bodyHtml, nowIso, rows.length ? 1 : 0, key, inReplyTo, references),
+      env.DB.prepare(`INSERT INTO messages (id,message_id,original_message_id,mailbox_id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,subject,preview,body_text,body_html,received_at,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status,is_junk) VALUES (?1,?2,?3,?4,?5,'inbound',?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'received',?19)`).bind(id, storedMessageId, headerMessageId, mailbox.id, threadId, (sender?.address || message.from).slice(0, 320), sender?.name?.slice(0, 320) || null, JSON.stringify(to.length ? to : [message.to]), JSON.stringify(cc), (parsed.subject || "(no subject)").slice(0, 998), safePreview(bodyText), bodyText, bodyHtml, nowIso, rows.length ? 1 : 0, key, inReplyTo, references, Number(isJunk)),
       ...rows.map(attachment => env.DB.prepare("INSERT INTO attachments (id,message_id,filename,content_type,size,r2_key) VALUES (?1,?2,?3,?4,?5,?6)").bind(attachment.id, id, attachment.filename, attachment.mimeType, attachment.size, attachment.key)),
       env.DB.prepare("UPDATE threads SET latest_message_at=?2,message_count=message_count+1,is_read=0,subject=CASE WHEN subject='' THEN ?3 ELSE subject END WHERE id=?1 AND mailbox_id=?4").bind(threadId, nowIso, (parsed.subject || "(no subject)").slice(0, 998), mailbox.id),
     ]);
@@ -147,7 +149,7 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
     return;
   }
 
-  ctx.waitUntil(sendNewMailPush(env, {
+  if (!isJunk) ctx.waitUntil(sendNewMailPush(env, {
     id,
     subject: parsed.subject || "(no subject)",
     fromAddress: sender?.address || message.from,
@@ -156,5 +158,5 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
     preview: safePreview(bodyText),
   }));
   const forwardTo = env.FORWARD_TO.trim();
-  if (forwardTo && mailbox.id === PRIMARY_MAILBOX_ID) ctx.waitUntil(message.forward(forwardTo));
+  if (forwardTo && mailbox.id === PRIMARY_MAILBOX_ID && !isJunk) ctx.waitUntil(message.forward(forwardTo));
 }
