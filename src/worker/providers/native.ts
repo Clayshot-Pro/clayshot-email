@@ -114,7 +114,8 @@ export class NativeMailProvider implements MailProvider {
   }
 
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
-    const result = await this.env.EMAIL.send({
+    const transport = this.accountId === "native:primary" ? this.env.EMAIL : this.env.EMAIL_MULTI;
+    const result = await transport.send({
       from: { email: this.address, name: "Liam" },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,
