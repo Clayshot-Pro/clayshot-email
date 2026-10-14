@@ -15,7 +15,6 @@ import { deleteProfilePhoto, getProfile, getProfilePhoto, saveProfilePhoto } fro
 import {
   authenticationOptions,
   authStatus,
-  isAuthenticated,
   logout,
   registrationOptions,
   resetSessions,
@@ -28,7 +27,7 @@ import {
 import { APP_ORIGIN } from "./config";
 import { receiveEmail } from "./email/receive";
 import { sendEmail } from "./email/send";
-import { disconnectGoogle, googleOAuthCallback, startGoogleOAuth } from "./providers/google";
+import { googleOAuthCallback, startGoogleOAuth } from "./providers/google";
 import { pushConfig, subscribePush, unsubscribePush } from "./push";
 import { authRateLimitBucket, checkAuthRateLimit } from "./security";
 
