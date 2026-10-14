@@ -315,6 +315,22 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
       return Response.json({ error: "This send request is already being processed" }, { status: 409 });
     }
   }
+  // Reserve expected D1 body and R2 attachment bytes before transport is
+  // invoked. Quota checks are atomic across concurrent mailboxes/requests.
+  const bodyBytes = new TextEncoder().encode(text).byteLength
+    + new TextEncoder().encode(textToHtml(text)).byteLength;
+  const attachmentBytes = allUploads.reduce((sum, upload) => sum + upload.content.byteLength, 0);
+  const countedBytes = bodyBytes + attachmentBytes;
+  if (provider.kind === "native") {
+    const quota = await env.DB.prepare(
+      "UPDATE native_mailboxes SET used_bytes=used_bytes+?1,usage_version=usage_version+1 WHERE id=?2 AND status='active' AND used_bytes+?1<=quota_bytes"
+    ).bind(countedBytes, provider.accountId).run();
+    if (!quota.meta.changes) {
+      await env.DB.prepare("DELETE FROM outbound_attempts WHERE mailbox_id=?1 AND client_key=?2 AND state='pending'")
+        .bind(provider.accountId,clientKey).run();
+      return Response.json({ error: "Mailbox storage quota exceeded" }, { status: 413 });
+    }
+  }
   const threadId = replyTarget?.thread_id ?? crypto.randomUUID();
   const now = new Date();
   const nowIso = now.toISOString();
@@ -349,6 +365,11 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     await env.DB.prepare(
       "UPDATE outbound_attempts SET state=?3, provider_message_id=?4, error_code=?5, updated_at=CURRENT_TIMESTAMP WHERE mailbox_id=?1 AND client_key=?2"
     ).bind(provider.accountId,clientKey,status === "sent" ? "accepted" : "failed",providerMessageId,deliveryError).run();
+  }
+  if (provider.kind === "native" && status !== "sent" && attachmentBytes > 0) {
+    await env.DB.prepare(
+      "UPDATE native_mailboxes SET used_bytes=MAX(0,used_bytes-?1),usage_version=usage_version+1 WHERE id=?2"
+    ).bind(attachmentBytes, provider.accountId).run();
   }
 
   if (provider.kind !== "native") {
@@ -464,6 +485,9 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
 
   } catch {
     await Promise.allSettled(attachmentRows.map(row => env.MAIL.delete(row.key)));
+    await env.DB.prepare(
+      "UPDATE native_mailboxes SET used_bytes=MAX(0,used_bytes-?1),usage_version=usage_version+1 WHERE id=?2"
+    ).bind(countedBytes, provider.accountId).run().catch(() => undefined);
     // Sending may already have been accepted. Never automatically retry it.
     return Response.json({ error: "Mail transport finished, but storing its local sent record failed. Do not retry until checked." }, { status: 502 });
   }
