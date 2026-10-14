@@ -2,7 +2,6 @@
 -- Additive migration; existing mailboxes and messages remain untouched.
 ALTER TABLE native_mailboxes ADD COLUMN deleted_at TEXT;
 ALTER TABLE native_mailboxes ADD COLUMN purge_after TEXT;
-ALTER TABLE native_mailboxes ADD COLUMN forwarded_to TEXT;
 ALTER TABLE native_mailboxes ADD COLUMN spam_filter_enabled INTEGER NOT NULL DEFAULT 0 CHECK (spam_filter_enabled IN (0,1));
 ALTER TABLE native_mailboxes ADD COLUMN usage_version INTEGER NOT NULL DEFAULT 0;
 
