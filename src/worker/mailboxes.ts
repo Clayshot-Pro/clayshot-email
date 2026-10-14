@@ -8,7 +8,7 @@ const MAX_MAILBOXES = 100;
 const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root"]);
 
 function safeDisplayName(value: string): string {
-  return value.replace(/[\\u0000-\\u001f\\u007f]/g, " ").replace(/\\s+/g, " ").trim().slice(0, 80);
+  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
 export type NativeMailbox = {
