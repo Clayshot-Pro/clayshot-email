@@ -1,3 +1,4 @@
+import { adminPasswordConfigured, pendingAdminHash, consumePendingAdmin, clearPendingCookie } from "./adminAuth";
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -28,6 +29,7 @@ type CredentialRow = {
 
 type ChallengeRow = {
   challenge: string;
+  admin_pending_hash: string | null;
 };
 
 type SessionRow = {
@@ -165,12 +167,12 @@ async function setupAuthorized(request: Request, env: Env, supplied?: string): P
   return diff === 0;
 }
 
-async function saveChallenge(env: Env, ceremony: Ceremony, challenge: string): Promise<string> {
+async function saveChallenge(env: Env, ceremony: Ceremony, challenge: string, adminPendingHash: string | null = null): Promise<string> {
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    "INSERT INTO auth_challenges (id, challenge, ceremony, expires_at) VALUES (?, ?, ?, datetime('now', ?))",
+    "INSERT INTO auth_challenges (id, challenge, ceremony, expires_at, admin_pending_hash) VALUES (?, ?, ?, datetime('now', ?), ?)",
   )
-    .bind(id, challenge, ceremony, `+${CHALLENGE_TTL_SECONDS} seconds`)
+    .bind(id, challenge, ceremony, `+${CHALLENGE_TTL_SECONDS} seconds`, adminPendingHash)
     .run();
   return id;
 }
@@ -183,7 +185,7 @@ async function takeChallenge(
   return env.DB.prepare(`
     DELETE FROM auth_challenges
     WHERE id = ? AND ceremony = ? AND expires_at > datetime('now')
-    RETURNING challenge
+    RETURNING challenge,admin_pending_hash
   `)
     .bind(id, ceremony)
     .first<ChallengeRow>();
@@ -196,6 +198,7 @@ export async function authStatus(request: Request, env: Env): Promise<Response> 
     configured,
     authenticated: configured ? await isAuthenticated(request, env) : false,
     setupAvailable: !configured && Boolean(env.AUTH_SETUP_TOKEN),
+    adminPasswordConfigured: await adminPasswordConfigured(env),
   });
 }
 
@@ -306,8 +309,11 @@ export async function verifyRegistration(request: Request, env: Env): Promise<Re
   }
 }
 
-export async function authenticationOptions(_request: Request, env: Env): Promise<Response> {
+export async function authenticationOptions(request: Request, env: Env): Promise<Response> {
   await cleanup(env);
+  const requiresPassword = await adminPasswordConfigured(env);
+  const pending = requiresPassword ? await pendingAdminHash(request, env) : null;
+  if (requiresPassword && !pending) return jsonError("Administrator password verification required", 403);
   const credentials = await env.DB.prepare(
     "SELECT id, transports FROM auth_credentials ORDER BY created_at ASC",
   ).all<{ id: string; transports: string | null }>();
@@ -323,7 +329,7 @@ export async function authenticationOptions(_request: Request, env: Env): Promis
   });
 
   return Response.json({
-    challengeId: await saveChallenge(env, "authentication", options.challenge),
+    challengeId: await saveChallenge(env, "authentication", options.challenge, pending),
     options,
   });
 }
@@ -337,8 +343,12 @@ export async function verifyAuthentication(request: Request, env: Env): Promise<
     return jsonError("Invalid authentication payload", 400);
   }
 
+  const requiresPassword = await adminPasswordConfigured(env);
   const challenge = await takeChallenge(env, body.challengeId, "authentication");
   if (!challenge) return jsonError("Authentication challenge expired or invalid", 400);
+  if (requiresPassword && (!challenge.admin_pending_hash || await pendingAdminHash(request,env)!==challenge.admin_pending_hash)) {
+    return jsonError("Administrator password verification required", 403);
+  }
 
   const stored = await env.DB.prepare(`
     SELECT id, public_key, counter, transports
@@ -374,13 +384,14 @@ export async function verifyAuthentication(request: Request, env: Env): Promise<
       .bind(verification.authenticationInfo.newCounter, stored.id)
       .run();
 
+    if (requiresPassword && (!challenge.admin_pending_hash || !(await consumePendingAdmin(request, env, challenge.admin_pending_hash)))) {
+      return jsonError("Administrator verification expired", 403);
+    }
     const token = await createSession(env, request);
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: {
-        "Content-Type": "application/json",
-        "Set-Cookie": sessionCookie(token),
-      },
-    });
+    const headers = new Headers({ "Content-Type": "application/json" });
+    headers.append("Set-Cookie", sessionCookie(token));
+    if (requiresPassword) headers.append("Set-Cookie", clearPendingCookie());
+    return new Response(JSON.stringify({ ok: true }), { headers });
   } catch {
     return jsonError("Passkey authentication failed", 401);
   }
