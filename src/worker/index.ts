@@ -1,4 +1,4 @@
-import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox } from "./mailboxes";
+import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
 import { previewAttachment } from "./api/attachments";
@@ -136,13 +136,25 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     return Response.json({ mailboxes: await allNativeMailboxes(env) });
   }
   if (url.pathname === "/api/mailboxes" && request.method === "POST") {
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:create"))))
+      return jsonError("Too many mailbox operations", 429);
     return createNativeMailbox(request, env);
   }
+  const lifecycleRoute = url.pathname.match(/^\/api\/mailboxes\/([^/]+)\/(restore|purge)$/);
+  if (lifecycleRoute && request.method === "POST") {
+    const id = decodePathSegment(lifecycleRoute[1]);
+    if (!id) return jsonError("Invalid mailbox ID", 400);
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:" + lifecycleRoute[2]))))
+      return jsonError("Too many mailbox operations", 429);
+    return lifecycleRoute[2] === "restore" ? restoreNativeMailbox(env, id) : purgeNativeMailbox(env, id);
+  }
   const mailboxRoute = url.pathname.match(new RegExp("^/api/mailboxes/([^/]+)$"));
-  if (mailboxRoute && request.method === "PATCH") {
+  if (mailboxRoute && (request.method === "PATCH" || request.method === "DELETE")) {
     const id = decodedRouteId(mailboxRoute);
     if (!id) return jsonError("Invalid mailbox ID", 400);
-    return updateNativeMailbox(request, env, id);
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:mutate"))))
+      return jsonError("Too many mailbox operations", 429);
+    return request.method === "DELETE" ? scheduleNativeMailboxDeletion(env, id) : updateNativeMailbox(request, env, id);
   }
   if (url.pathname === "/api/messages" && request.method === "GET") return listMessages(request, env);
   if (url.pathname === "/api/send" && request.method === "POST") return sendEmail(request, env);
