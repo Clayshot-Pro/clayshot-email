@@ -63,7 +63,7 @@ function equalHash(a: string, b: string): boolean {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
-export async function credentialForMailbox(id: string, password: string): Promise<{ salt: string; hash: string; iterations: number }> {
+export async function credentialForMailbox(_id: string, password: string): Promise<{ salt: string; hash: string; iterations: number }> {
   if (password.length < 16 || password.length > 256) throw Error("Invalid password length");
   const salt = token(24);
   return { salt, hash: await derivePassword(password, salt), iterations: PASSWORD_ITERATIONS };
