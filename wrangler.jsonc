@@ -11,7 +11,8 @@
   },
   "vars": {
     "PRIMARY_ADDRESS": "contact@liamthemo.com",
-    "FORWARD_TO": ""
+    "FORWARD_TO": "",
+    "MULTI_SENDER_APPROVED": "false"
   },
   "d1_databases": [
     {
@@ -31,6 +32,9 @@
     {
       "name": "EMAIL",
       "allowed_sender_addresses": ["contact@liamthemo.com"]
+    },
+    {
+      "name": "EMAIL_MULTI"
     }
   ],
   "observability": {
