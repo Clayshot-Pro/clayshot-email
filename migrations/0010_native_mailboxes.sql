@@ -17,6 +17,7 @@ VALUES ('native:primary', 'contact@liamthemo.com', 'LTM Email');
 ALTER TABLE threads ADD COLUMN mailbox_id TEXT NOT NULL DEFAULT 'native:primary';
 ALTER TABLE messages ADD COLUMN mailbox_id TEXT NOT NULL DEFAULT 'native:primary';
 ALTER TABLE messages ADD COLUMN original_message_id TEXT;
+ALTER TABLE messages ADD COLUMN is_junk INTEGER NOT NULL DEFAULT 0 CHECK (is_junk IN (0, 1));
 ALTER TABLE drafts ADD COLUMN mailbox_id TEXT NOT NULL DEFAULT 'native:primary';
 
 UPDATE messages SET original_message_id = message_id WHERE direction = 'inbound' AND message_id IS NOT NULL;
