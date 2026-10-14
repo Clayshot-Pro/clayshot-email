@@ -4,6 +4,7 @@ ALTER TABLE native_mailboxes ADD COLUMN deleted_at TEXT;
 ALTER TABLE native_mailboxes ADD COLUMN purge_after TEXT;
 ALTER TABLE native_mailboxes ADD COLUMN forwarded_to TEXT;
 ALTER TABLE native_mailboxes ADD COLUMN spam_filter_enabled INTEGER NOT NULL DEFAULT 0 CHECK (spam_filter_enabled IN (0,1));
+ALTER TABLE native_mailboxes ADD COLUMN usage_version INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS mailbox_audit (
   id TEXT PRIMARY KEY,
@@ -26,3 +27,13 @@ CREATE TABLE IF NOT EXISTS outbound_attempts (
   FOREIGN KEY (mailbox_id) REFERENCES native_mailboxes(id)
 );
 CREATE INDEX IF NOT EXISTS idx_outbound_attempts_started ON outbound_attempts(mailbox_id,started_at DESC);
+
+CREATE TABLE IF NOT EXISTS mailbox_usage_rebuild (
+  mailbox_id TEXT PRIMARY KEY,
+  usage_version INTEGER NOT NULL,
+  cursor TEXT NOT NULL DEFAULT '',
+  total_bytes INTEGER NOT NULL DEFAULT 0,
+  missing_objects INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (mailbox_id) REFERENCES native_mailboxes(id) ON DELETE CASCADE
+);
