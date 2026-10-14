@@ -67,7 +67,7 @@ export class NativeMailProvider implements MailProvider {
   constructor(private readonly env: Env, readonly accountId: string, readonly address: string) {}
 
   async listMessages(options: ProviderListOptions): Promise<ProviderMessage[]> {
-    let where = folderWhere[options.folder];
+    let where: string = folderWhere[options.folder];
     const bindings: Array<string | number> = [this.accountId];
     where = `mailbox_id = ? AND (${where})`;
     if (options.search) {
