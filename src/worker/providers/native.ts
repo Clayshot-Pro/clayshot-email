@@ -64,7 +64,7 @@ function toListItem(row: NativeMessageRow): ProviderMessage {
 
 export class NativeMailProvider implements MailProvider {
   readonly kind = "native" as const;
-  constructor(private readonly env: Env, readonly accountId: string, readonly address: string) {}
+  constructor(private readonly env: Env, readonly accountId: string, readonly address: string, readonly senderName: string) {}
 
   async listMessages(options: ProviderListOptions): Promise<ProviderMessage[]> {
     let where: string = folderWhere[options.folder];
@@ -114,8 +114,9 @@ export class NativeMailProvider implements MailProvider {
   }
 
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
-    const result = await this.env.EMAIL.send({
-      from: { email: this.address, name: "Liam" },
+    const transport = this.accountId === "native:primary" ? this.env.EMAIL : this.env.EMAIL_MULTI;
+    const result = await transport.send({
+      from: { email: this.address, name: this.senderName },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,
       bcc: input.bcc.length ? input.bcc : undefined,
@@ -135,6 +136,6 @@ export class NativeMailProvider implements MailProvider {
   }
 }
 
-export function nativeProvider(env: Env, id: string, address: string) {
-  return new NativeMailProvider(env, id, address);
+export function nativeProvider(env: Env, id: string, address: string, senderName: string) {
+  return new NativeMailProvider(env, id, address, senderName);
 }

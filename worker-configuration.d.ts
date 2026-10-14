@@ -37,6 +37,9 @@ interface Env {
   MAIL: R2Bucket;
   ASSETS: Fetcher;
   EMAIL: EmailServiceBinding;
+  EMAIL_MULTI: EmailServiceBinding;
+  MULTI_SENDER_APPROVED?: string;
+  MAILBOX_PURGE_ENABLED?: string;
   PRIMARY_ADDRESS: string;
   FORWARD_TO: string;
   AUTH_SETUP_TOKEN?: string;

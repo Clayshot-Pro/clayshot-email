@@ -1,3 +1,4 @@
+import { suspectedJunk } from "./junk";
 import { mailboxForRecipient, PRIMARY_MAILBOX_ID } from "../mailboxes";
 import PostalMime from "postal-mime";
 import { sendNewMailPush } from "../push";
@@ -94,7 +95,24 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const now = new Date();
   const nowIso = now.toISOString();
   const headerMessageId = (parsed.messageId?.trim() || message.headers.get("message-id")?.trim() || `<${id}@email.liamthemo.com>`).slice(0, 998);
-  if (await env.DB.prepare("SELECT 1 FROM messages WHERE mailbox_id = ?1 AND original_message_id = ?2 LIMIT 1").bind(mailbox.id, headerMessageId).first()) return;
+  // Delivery retries may reuse the same SMTP envelope/MIME, but two real
+  // messages can share a sender-supplied RFC Message-ID. Dedup by MIME+recipient
+  // over a short retention window, not by Message-ID.
+  const contentDigest = await crypto.subtle.digest("SHA-256", raw);
+  const contentHex = Array.from(new Uint8Array(contentDigest), b => b.toString(16).padStart(2, "0")).join("");
+  const envelopeDigest = await crypto.subtle.digest(
+    "SHA-256", encoder.encode(`${message.to.trim().toLowerCase()}:${contentHex}`),
+  );
+  const fingerprint = Array.from(new Uint8Array(envelopeDigest), b => b.toString(16).padStart(2, "0")).join("");
+  const claim = await env.DB.prepare(
+    "INSERT OR IGNORE INTO inbound_receipts(mailbox_id,fingerprint,state) VALUES (?1,?2,'pending')"
+  ).bind(mailbox.id, fingerprint).run();
+  if (!claim.meta.changes) {
+    const recovered = await env.DB.prepare(
+      "UPDATE inbound_receipts SET first_seen_at=CURRENT_TIMESTAMP WHERE mailbox_id=?1 AND fingerprint=?2 AND state='pending' AND first_seen_at<=datetime('now','-15 minutes')"
+    ).bind(mailbox.id,fingerprint).run();
+    if (!recovered.meta.changes) return;
+  }
   // The legacy message_id column is globally unique. Always store newly
   // received RFC IDs in original_message_id so concurrent multi-recipient
   // deliveries cannot collide on the old unique constraint.
@@ -105,6 +123,7 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const to = addresses(parsed.to);
   const cc = addresses(parsed.cc);
   const bodyText = truncateUtf8(parsed.text?.trim() || (parsed.html ? htmlToText(parsed.html) : ""), MAX_STORED_TEXT);
+  const isJunk = mailbox.spam_filter_enabled === 1 && suspectedJunk(parsed.subject ?? "", sender?.address || message.from, bodyText);
   const bodyHtml = parsed.html ? truncateUtf8(sanitizeEmailHtml(parsed.html), MAX_STORED_TEXT) || null : null;
   const threadId = await resolveThreadId(env, mailbox.id, inReplyTo, references);
   const key = `emails/${mailbox.id.replace(":", "_")}/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${String(now.getUTCDate()).padStart(2, "0")}/${id}/raw.eml`;
@@ -114,9 +133,11 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   // R2. A conditional D1 update is atomic across concurrent deliveries.
   const storageBytes = raw.byteLength + parsedAttachments.reduce((sum, part) => sum + part.bytes.byteLength, 0);
   const quotaReservation = await env.DB.prepare(
-    "UPDATE native_mailboxes SET used_bytes = used_bytes + ?1 WHERE id = ?2 AND status = 'active' AND used_bytes + ?1 <= quota_bytes"
+    "UPDATE native_mailboxes SET used_bytes = used_bytes + ?1, usage_version = usage_version + 1 WHERE id = ?2 AND status = 'active' AND used_bytes + ?1 <= quota_bytes"
   ).bind(storageBytes, mailbox.id).run();
   if (!quotaReservation.meta.changes) {
+    await env.DB.prepare("DELETE FROM inbound_receipts WHERE mailbox_id=?1 AND fingerprint=?2 AND state='pending'")
+      .bind(mailbox.id,fingerprint).run();
     reject(message, "Mailbox storage quota exceeded");
     return;
   }
@@ -132,22 +153,24 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
     }
     await env.DB.batch([
       env.DB.prepare("INSERT OR IGNORE INTO threads (id, subject, latest_message_at, message_count, is_read, mailbox_id) VALUES (?1, ?2, ?3, 0, 0, ?4)").bind(threadId, (parsed.subject || "(no subject)").slice(0, 998), nowIso, mailbox.id),
-      env.DB.prepare(`INSERT INTO messages (id,message_id,original_message_id,mailbox_id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,subject,preview,body_text,body_html,received_at,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status) VALUES (?1,?2,?3,?4,?5,'inbound',?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'received')`).bind(id, storedMessageId, headerMessageId, mailbox.id, threadId, (sender?.address || message.from).slice(0, 320), sender?.name?.slice(0, 320) || null, JSON.stringify(to.length ? to : [message.to]), JSON.stringify(cc), (parsed.subject || "(no subject)").slice(0, 998), safePreview(bodyText), bodyText, bodyHtml, nowIso, rows.length ? 1 : 0, key, inReplyTo, references),
+      env.DB.prepare(`INSERT INTO messages (id,message_id,original_message_id,mailbox_id,thread_id,direction,from_address,from_name,to_addresses,cc_addresses,subject,preview,body_text,body_html,received_at,has_attachments,raw_r2_key,in_reply_to,reference_ids,delivery_status,is_junk) VALUES (?1,?2,?3,?4,?5,'inbound',?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'received',?19)`).bind(id, storedMessageId, headerMessageId, mailbox.id, threadId, (sender?.address || message.from).slice(0, 320), sender?.name?.slice(0, 320) || null, JSON.stringify(to.length ? to : [message.to]), JSON.stringify(cc), (parsed.subject || "(no subject)").slice(0, 998), safePreview(bodyText), bodyText, bodyHtml, nowIso, rows.length ? 1 : 0, key, inReplyTo, references, Number(isJunk)),
       ...rows.map(attachment => env.DB.prepare("INSERT INTO attachments (id,message_id,filename,content_type,size,r2_key) VALUES (?1,?2,?3,?4,?5,?6)").bind(attachment.id, id, attachment.filename, attachment.mimeType, attachment.size, attachment.key)),
       env.DB.prepare("UPDATE threads SET latest_message_at=?2,message_count=message_count+1,is_read=0,subject=CASE WHEN subject='' THEN ?3 ELSE subject END WHERE id=?1 AND mailbox_id=?4").bind(threadId, nowIso, (parsed.subject || "(no subject)").slice(0, 998), mailbox.id),
+      env.DB.prepare("UPDATE inbound_receipts SET state='accepted',message_id=?3 WHERE mailbox_id=?1 AND fingerprint=?2 AND state='pending'").bind(mailbox.id,fingerprint,id),
     ]);
   } catch {
     await Promise.allSettled([
       env.MAIL.delete(key),
       ...rows.map(row => env.MAIL.delete(row.key)),
-      env.DB.prepare("UPDATE native_mailboxes SET used_bytes = MAX(0, used_bytes - ?1) WHERE id = ?2")
+      env.DB.prepare("UPDATE native_mailboxes SET used_bytes = MAX(0, used_bytes - ?1), usage_version = usage_version + 1 WHERE id = ?2")
         .bind(storageBytes, mailbox.id).run(),
+      env.DB.prepare("DELETE FROM inbound_receipts WHERE mailbox_id=?1 AND fingerprint=?2 AND state='pending'").bind(mailbox.id,fingerprint).run(),
     ]);
     reject(message, "Message could not be stored");
     return;
   }
 
-  ctx.waitUntil(sendNewMailPush(env, {
+  if (!isJunk) ctx.waitUntil(sendNewMailPush(env, {
     id,
     subject: parsed.subject || "(no subject)",
     fromAddress: sender?.address || message.from,
@@ -156,5 +179,5 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
     preview: safePreview(bodyText),
   }));
   const forwardTo = env.FORWARD_TO.trim();
-  if (forwardTo && mailbox.id === PRIMARY_MAILBOX_ID) ctx.waitUntil(message.forward(forwardTo));
+  if (forwardTo && mailbox.id === PRIMARY_MAILBOX_ID && !isJunk) ctx.waitUntil(message.forward(forwardTo));
 }

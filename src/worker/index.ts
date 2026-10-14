@@ -1,4 +1,5 @@
-import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox } from "./mailboxes";
+import { reconcileMailboxUsage } from "./usage";
+import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox, purgeExpiredNativeMailboxes } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
 import { previewAttachment } from "./api/attachments";
@@ -136,13 +137,32 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     return Response.json({ mailboxes: await allNativeMailboxes(env) });
   }
   if (url.pathname === "/api/mailboxes" && request.method === "POST") {
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:create"))))
+      return jsonError("Too many mailbox operations", 429);
     return createNativeMailbox(request, env);
   }
+  const reconcileRoute = url.pathname.match(/^\/api\/mailboxes\/([^/]+)\/reconcile$/);
+  if (reconcileRoute && request.method === "POST") {
+    const id = decodePathSegment(reconcileRoute[1]);
+    return id ? reconcileMailboxUsage(env, id) : jsonError("Invalid mailbox ID", 400);
+  }
+  const lifecycleRoute = url.pathname.match(/^\/api\/mailboxes\/([^/]+)\/(restore|purge)$/);
+  if (lifecycleRoute && request.method === "POST") {
+    const id = decodePathSegment(lifecycleRoute[1]);
+    if (!id) return jsonError("Invalid mailbox ID", 400);
+    // Purge is bounded to 50 messages per call and may need many invocations.
+    // Restore is rate-limited; both routes require the owner session.
+    if (lifecycleRoute[2] === "restore" && !(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:restore"))))
+      return jsonError("Too many mailbox operations", 429);
+    return lifecycleRoute[2] === "restore" ? restoreNativeMailbox(env, id) : purgeNativeMailbox(env, id);
+  }
   const mailboxRoute = url.pathname.match(new RegExp("^/api/mailboxes/([^/]+)$"));
-  if (mailboxRoute && request.method === "PATCH") {
+  if (mailboxRoute && (request.method === "PATCH" || request.method === "DELETE")) {
     const id = decodedRouteId(mailboxRoute);
     if (!id) return jsonError("Invalid mailbox ID", 400);
-    return updateNativeMailbox(request, env, id);
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:mutate"))))
+      return jsonError("Too many mailbox operations", 429);
+    return request.method === "DELETE" ? scheduleNativeMailboxDeletion(env, id) : updateNativeMailbox(request, env, id);
   }
   if (url.pathname === "/api/messages" && request.method === "GET") return listMessages(request, env);
   if (url.pathname === "/api/send" && request.method === "POST") return sendEmail(request, env);
@@ -207,5 +227,14 @@ export default {
 
   async email(message, env, ctx): Promise<void> {
     await receiveEmail(message, env, ctx);
+  },
+
+  async scheduled(_event, env, ctx): Promise<void> {
+    // Retry receipts only exist to prevent duplicate ingestion after transport
+    // retries; they are not permanent message records.
+    ctx.waitUntil(env.DB.prepare("DELETE FROM inbound_receipts WHERE first_seen_at<datetime('now','-7 days')").run().then(() => undefined));
+    if (env.MAILBOX_PURGE_ENABLED === "true") {
+      ctx.waitUntil(purgeExpiredNativeMailboxes(env));
+    }
   },
 } satisfies ExportedHandler<Env>;
