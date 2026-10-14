@@ -230,6 +230,9 @@ export default {
   },
 
   async scheduled(_event, env, ctx): Promise<void> {
+    // Retry receipts only exist to prevent duplicate ingestion after transport
+    // retries; they are not permanent message records.
+    ctx.waitUntil(env.DB.prepare("DELETE FROM inbound_receipts WHERE first_seen_at<datetime('now','-7 days')").run().then(() => undefined));
     if (env.MAILBOX_PURGE_ENABLED === "true") {
       ctx.waitUntil(purgeExpiredNativeMailboxes(env));
     }
