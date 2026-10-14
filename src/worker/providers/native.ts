@@ -23,9 +23,9 @@ type NativeMessageRow = {
 const folderWhere = {
   inbox: "direction = 'inbound' AND is_archived = 0 AND is_deleted = 0 AND is_junk = 0",
   junk: "is_junk = 1 AND is_deleted = 0",
-  starred: "is_starred = 1 AND is_deleted = 0",
+  starred: "is_starred = 1 AND is_deleted = 0 AND is_junk = 0",
   sent: "direction = 'outbound' AND is_archived = 0 AND is_deleted = 0",
-  archive: "is_archived = 1 AND is_deleted = 0",
+  archive: "is_archived = 1 AND is_deleted = 0 AND is_junk = 0",
   trash: "is_deleted = 1",
 } as const;
 
