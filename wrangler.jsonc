@@ -11,8 +11,7 @@
   },
   "vars": {
     "PRIMARY_ADDRESS": "contact@liamthemo.com",
-    "FORWARD_TO": "",
-    "MULTI_SENDER_APPROVED": "false"
+    "FORWARD_TO": ""
   },
   "d1_databases": [
     {
