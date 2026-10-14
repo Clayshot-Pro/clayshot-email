@@ -1,3 +1,4 @@
+import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
 
 type ReplyTarget = {
@@ -285,6 +286,35 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   if (!subject) subject = "(no subject)";
 
   const id = crypto.randomUUID();
+  const clientKey = String(form.get("sendKey") ?? draftId ?? "").trim();
+  if (provider.kind === "native") {
+    if (!/^[A-Za-z0-9_-]{12,120}$/.test(clientKey)) {
+      return Response.json({ error: "A valid send key is required" }, { status: 400 });
+    }
+    const existing = await env.DB.prepare(
+      "SELECT state,message_id,provider_message_id FROM outbound_attempts WHERE mailbox_id=?1 AND client_key=?2"
+    ).bind(provider.accountId,clientKey).first<{state:string;message_id:string|null;provider_message_id:string|null}>();
+    if (existing) {
+      if (existing.state === "accepted") {
+        return Response.json({ ok: true, alreadyAccepted: true, messageId: existing.message_id, providerMessageId: existing.provider_message_id, accountId: provider.accountId });
+      }
+      return Response.json({ error: "Previous send attempt is pending or failed; review its status before trying again" }, { status: 409 });
+    }
+    if (!(await checkAuthRateLimit(env, `outbound:${provider.accountId}`))) {
+      return Response.json({ error: "Mailbox sending rate limit exceeded" }, { status: 429 });
+    }
+    const today = await env.DB.prepare("SELECT COUNT(*) AS n FROM outbound_attempts WHERE mailbox_id=?1 AND started_at >= datetime('now','-1 day')")
+      .bind(provider.accountId).first<{n:number}>();
+    if ((today?.n ?? 0) >= 200) {
+      return Response.json({ error: "Daily mailbox send limit exceeded" }, { status: 429 });
+    }
+    const reserved = await env.DB.prepare(
+      "INSERT OR IGNORE INTO outbound_attempts (mailbox_id,client_key,message_id,state) VALUES (?1,?2,?3,'pending')"
+    ).bind(provider.accountId,clientKey,id).run();
+    if (!reserved.meta.changes) {
+      return Response.json({ error: "This send request is already being processed" }, { status: 409 });
+    }
+  }
   const threadId = replyTarget?.thread_id ?? crypto.randomUUID();
   const now = new Date();
   const nowIso = now.toISOString();
@@ -315,6 +345,12 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     deliveryError = safeDeliveryError(error);
   }
 
+  if (provider.kind === "native") {
+    await env.DB.prepare(
+      "UPDATE outbound_attempts SET state=?3, provider_message_id=?4, error_code=?5, updated_at=CURRENT_TIMESTAMP WHERE mailbox_id=?1 AND client_key=?2"
+    ).bind(provider.accountId,clientKey,status === "sent" ? "accepted" : "failed",providerMessageId,deliveryError).run();
+  }
+
   if (provider.kind !== "native") {
     return status === "sent"
       ? Response.json(
@@ -328,6 +364,7 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   }
 
   const attachmentRows: Array<{ id: string; key: string; upload: Upload }> = [];
+  try {
   if (status === "sent") {
     for (const upload of allUploads) {
       const attachmentId = crypto.randomUUID();
@@ -425,6 +462,11 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     `).bind(threadId, nowIso, subject, provider.accountId),
   ]);
 
+  } catch {
+    await Promise.allSettled(attachmentRows.map(row => env.MAIL.delete(row.key)));
+    // Sending may already have been accepted. Never automatically retry it.
+    return Response.json({ error: "Mail transport finished, but storing its local sent record failed. Do not retry until checked." }, { status: 502 });
+  }
   if (status === "failed") {
     return Response.json(
       { error: userDeliveryError(deliveryError ?? ""), messageId: id },
