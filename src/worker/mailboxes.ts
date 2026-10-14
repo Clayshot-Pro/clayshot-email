@@ -118,6 +118,8 @@ export async function scheduleNativeMailboxDeletion(env: Env, id: string): Promi
 export async function restoreNativeMailbox(env: Env, id: string): Promise<Response> {
   const old = await mailboxById(env, id);
   if (!old || !old.deleted_at) return Response.json({ error: "Mailbox not pending deletion" }, { status: 404 });
+  const eligible = await env.DB.prepare("SELECT 1 AS eligible FROM native_mailboxes WHERE id=?1 AND purge_after > CURRENT_TIMESTAMP").bind(id).first();
+  if (!eligible) return Response.json({ error: "Recovery period expired; restore is unavailable" }, { status: 409 });
   await env.DB.prepare("UPDATE native_mailboxes SET status='active', deleted_at=NULL, purge_after=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?1")
     .bind(id).run();
   await audit(env, id, "restore");
