@@ -1,5 +1,5 @@
 import { isAuthenticated, logout as ownerLogout } from "./auth";
-import { normalizeMailboxAddress } from "./mailboxes";
+import { normalizeMailboxAddress } from "./mailboxRules";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
 
 const DEVICE_COOKIE = "__Host-ltm_device";
