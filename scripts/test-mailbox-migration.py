@@ -74,21 +74,32 @@ except sqlite3.IntegrityError:
 else:
     raise AssertionError("Mailbox addresses must be case-insensitively unique")
 
-try:
-    db.execute(
-        """INSERT INTO messages
-           (id,thread_id,direction,from_address,to_addresses,subject,received_at,
-            mailbox_id,original_message_id)
-           VALUES (?,?,?,?,?,?,?,?,?)""",
-        ("duplicate", "thread-example", "inbound", "sender@test.com",
-         "[]", "duplicate", "2026-10-02", box, "<existing@sender.test>"),
-    )
-except sqlite3.IntegrityError:
-    pass
-else:
-    raise AssertionError("Duplicate deliveries to the same mailbox must be rejected")
+# RFC Message-ID is not an SMTP delivery ID. Distinct MIME deliveries can
+# legitimately use the same RFC Message-ID and must not be silently dropped.
+db.execute(
+    """INSERT INTO messages
+       (id,thread_id,direction,from_address,to_addresses,subject,received_at,
+        mailbox_id,original_message_id)
+       VALUES (?,?,?,?,?,?,?,?,?)""",
+    ("second-content", "thread-example", "inbound", "sender@test.com",
+     "[]", "distinct MIME content", "2026-10-02", box, "<existing@sender.test>"),
+)
+assert db.execute(
+    "SELECT COUNT(*) FROM messages WHERE mailbox_id=? AND original_message_id=?",
+    (box, "<existing@sender.test>"),
+).fetchone()[0] == 2
 
-print("PASS: legacy mailbox backfill, independent delivery, deduplication and uniqueness")
+db.execute(
+    "INSERT INTO inbound_receipts(mailbox_id,fingerprint,state) VALUES (?,?,?)",
+    (box, "sha256-content-A", "pending"),
+)
+dup_receipt = db.execute(
+    "INSERT OR IGNORE INTO inbound_receipts(mailbox_id,fingerprint,state) VALUES (?,?,?)",
+    (box, "sha256-content-A", "pending"),
+)
+assert dup_receipt.rowcount == 0
+
+print("PASS: legacy mailbox backfill, independent delivery and retry-safe MIME fingerprints")
 
 db.execute("UPDATE native_mailboxes SET quota_bytes=10 WHERE id=?", (box,))
 allowed = db.execute(
