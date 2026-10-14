@@ -1,3 +1,6 @@
+import { ownerSessionHash } from "./auth";
+import { currentDeviceSession } from "./deviceAuth";
+import { mailboxForRecipient } from "./mailboxes";
 import { buildPushPayload, type PushSubscription } from "@block65/webcrypto-web-push";
 
 type StoredSubscription = {
@@ -6,6 +9,8 @@ type StoredSubscription = {
   p256dh: string;
   auth: string;
   expiration_time: number | null;
+  device_session_id: string | null;
+  owner_session_hash: string | null;
 };
 type SubscriptionInput = {
   endpoint?: unknown;
@@ -93,10 +98,21 @@ export async function subscribePush(request: Request, env: Env): Promise<Respons
   if (!validEndpoint(endpoint) || p256dh.length < 40 || p256dh.length > 128 || auth.length < 16 || auth.length > 64 || !BASE64URL.test(p256dh) || !BASE64URL.test(auth)) {
     return Response.json({ error: "Invalid push subscription" }, { status: 400 });
   }
+  const [device, ownerHash] = await Promise.all([
+    currentDeviceSession(request, env),
+    ownerSessionHash(request, env),
+  ]);
+  if (!device && !ownerHash) return Response.json({ error: "No verified device session" }, { status: 401 });
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  await env.DB.prepare(`INSERT INTO push_subscriptions (id,endpoint,p256dh,auth,expiration_time,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?6) ON CONFLICT(endpoint) DO UPDATE SET p256dh=excluded.p256dh,auth=excluded.auth,expiration_time=excluded.expiration_time,updated_at=excluded.updated_at`)
-    .bind(id, endpoint, p256dh, auth, expirationTime, now)
+  await env.DB.prepare(`INSERT INTO push_subscriptions
+    (id,endpoint,p256dh,auth,expiration_time,created_at,updated_at,device_session_id,owner_session_hash)
+    VALUES (?1,?2,?3,?4,?5,?6,?6,?7,?8)
+    ON CONFLICT(endpoint) DO UPDATE SET
+      p256dh=excluded.p256dh,auth=excluded.auth,expiration_time=excluded.expiration_time,
+      updated_at=excluded.updated_at,device_session_id=excluded.device_session_id,
+      owner_session_hash=excluded.owner_session_hash`)
+    .bind(id, endpoint, p256dh, auth, expirationTime, now, device?.id ?? null, ownerHash)
     .run();
   return Response.json({ ok: true }, { status: 201 });
 }
@@ -105,7 +121,12 @@ export async function unsubscribePush(request: Request, env: Env): Promise<Respo
   const body = await request.json<{ endpoint?: unknown }>().catch(() => null);
   const endpoint = typeof body?.endpoint === "string" ? body.endpoint.trim() : "";
   if (!validEndpoint(endpoint)) return Response.json({ error: "Invalid endpoint" }, { status: 400 });
-  await env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?1").bind(endpoint).run();
+  const [device, ownerHash] = await Promise.all([
+    currentDeviceSession(request, env), ownerSessionHash(request, env),
+  ]);
+  await env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint=?1 AND
+    ((device_session_id=?2 AND ?2 IS NOT NULL) OR (owner_session_hash=?3 AND ?3 IS NOT NULL))`)
+    .bind(endpoint,device?.id ?? null,ownerHash).run();
   return Response.json({ ok: true });
 }
 
@@ -142,7 +163,25 @@ async function sendToSubscription(env: Env, row: StoredSubscription, notificatio
 export async function sendNewMailPush(env: Env, notification: NewMailPush): Promise<void> {
   if (!vapidKeys(env)) return;
   await env.DB.prepare("DELETE FROM push_subscriptions WHERE expiration_time IS NOT NULL AND expiration_time <= ?1").bind(Date.now()).run();
-  const subscriptions = await env.DB.prepare("SELECT id,endpoint,p256dh,auth,expiration_time FROM push_subscriptions ORDER BY updated_at DESC LIMIT 10")
-    .all<StoredSubscription>();
-  await Promise.allSettled(subscriptions.results.map((row) => sendToSubscription(env, row, notification)));
+  const mailbox = await mailboxForRecipient(env, notification.toAddress);
+  if (!mailbox) return;
+  // Historical unscoped subscriptions are intentionally excluded. Each
+  // notification must be visible to the mailbox logged in on that device.
+  const subscriptions = await env.DB.prepare(`SELECT p.id,p.endpoint,p.p256dh,p.auth,p.expiration_time,
+      p.device_session_id,p.owner_session_hash
+    FROM push_subscriptions p
+    WHERE (
+      p.device_session_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM device_session_accounts g
+        JOIN device_sessions s ON s.id=g.session_id AND s.expires_at>datetime('now')
+        WHERE g.session_id=p.device_session_id AND g.account_id=?1 AND g.provider='native'
+      )
+    ) OR (
+      p.owner_session_hash IS NOT NULL AND EXISTS (
+        SELECT 1 FROM auth_sessions a WHERE a.token_hash=p.owner_session_hash AND a.expires_at>datetime('now')
+      )
+    )
+    ORDER BY p.updated_at DESC LIMIT 100`)
+    .bind(mailbox.id).all<StoredSubscription>();
+  await Promise.allSettled(subscriptions.results.map(row => sendToSubscription(env, row, notification)));
 }
