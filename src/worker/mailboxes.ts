@@ -1,12 +1,11 @@
+import { normalizeMailboxAddress } from "./mailboxRules";
 import { credentialForMailbox } from "./deviceAuth";
 /**
  * Native mailboxes are addresses managed by the single existing passkey owner.
  * They are not distinct web-app login identities or SMTP accounts.
  */
 export const PRIMARY_MAILBOX_ID = "native:primary";
-const DOMAIN = "liamthemo.com";
 const MAX_MAILBOXES = 100;
-const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root"]);
 
 function safeDisplayName(value: string): string {
   return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -24,18 +23,6 @@ export type NativeMailbox = {
   spam_filter_enabled: number;
   usage_version: number;
 };
-
-export function normalizeMailboxAddress(value: string, allowReserved = false): string | null {
-  const address = value.trim().toLowerCase();
-  const at = address.indexOf("@");
-  const local = at >= 0 ? address.slice(0, at) : address;
-  const domain = at >= 0 ? address.slice(at + 1) : DOMAIN;
-  if (domain !== DOMAIN || local.length < 1 || local.length > 64
-    || !/^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test(local)
-    || local.includes("..") || (!allowReserved && RESERVED.has(local))
-    || address.length > 254) return null;
-  return `${local}@${DOMAIN}`;
-}
 
 export async function mailboxById(env: Env, id: string): Promise<NativeMailbox | null> {
   return env.DB.prepare(
