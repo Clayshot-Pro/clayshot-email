@@ -174,6 +174,11 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     );
   }
 
+  // Cloudflare's current binding permits only the primary sender.
+  // Do not enable other addresses before provider policy and binding approval.
+  if (provider.kind === "native" && provider.address !== env.PRIMARY_ADDRESS) {
+    return Response.json({ error: "Sending from this mailbox is not enabled yet" }, { status: 403 });
+  }
   const to = splitRecipients(form.get("to"));
   const cc = splitRecipients(form.get("cc"));
   const bcc = splitRecipients(form.get("bcc"));
@@ -228,9 +233,9 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     replyTarget = await env.DB.prepare(`
       SELECT id, message_id, thread_id, reference_ids, subject
       FROM messages
-      WHERE id = ?1
+      WHERE id = ?1 AND mailbox_id = ?2
     `)
-      .bind(replyToMessageId)
+      .bind(replyToMessageId, provider.accountId)
       .first<ReplyTarget>();
     if (!replyTarget) {
       return Response.json({ error: "Reply target was not found" }, { status: 404 });
@@ -248,9 +253,9 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     forwardTarget = await env.DB.prepare(`
       SELECT id, subject
       FROM messages
-      WHERE id = ?1
+      WHERE id = ?1 AND mailbox_id = ?2
     `)
-      .bind(forwardMessageId)
+      .bind(forwardMessageId, provider.accountId)
       .first<ForwardTarget>();
     if (!forwardTarget) {
       return Response.json({ error: "Forward target was not found" }, { status: 404 });
@@ -341,10 +346,10 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
         subject,
         latest_message_at,
         message_count,
-        is_read
+        is_read, mailbox_id
       )
-      VALUES (?1, ?2, ?3, 0, 1)
-    `).bind(threadId, subject, nowIso),
+      VALUES (?1, ?2, ?3, 0, 1, ?4)
+    `).bind(threadId, subject, nowIso, provider.accountId),
     env.DB.prepare(`
       INSERT INTO messages (
         id,
@@ -366,11 +371,11 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
         in_reply_to,
         reference_ids,
         delivery_status,
-        delivery_error
+        delivery_error, mailbox_id
       )
       VALUES (
         ?1, ?2, ?3, 'outbound', ?4, ?5, ?6, ?7, ?8, ?9,
-        ?10, ?11, ?12, ?12, 1, ?13, ?14, ?15, ?16, ?17
+        ?10, ?11, ?12, ?12, 1, ?13, ?14, ?15, ?16, ?17, ?18
       )
     `).bind(
       id,
@@ -390,6 +395,7 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
       references,
       status,
       deliveryError,
+      provider.accountId,
     ),
     ...attachmentRows.map(({ id: attachmentId, key, upload }) =>
       env.DB.prepare(`
@@ -415,8 +421,8 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
       SET latest_message_at = ?2,
           message_count = message_count + 1,
           subject = ?3
-      WHERE id = ?1
-    `).bind(threadId, nowIso, subject),
+      WHERE id = ?1 AND mailbox_id = ?4
+    `).bind(threadId, nowIso, subject, provider.accountId),
   ]);
 
   if (status === "failed") {
@@ -427,8 +433,8 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   }
 
   if (draftId) {
-    await env.DB.prepare("DELETE FROM drafts WHERE id = ?1")
-      .bind(draftId)
+    await env.DB.prepare("DELETE FROM drafts WHERE id = ?1 AND mailbox_id = ?2")
+      .bind(draftId, provider.accountId)
       .run();
   }
 
