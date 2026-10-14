@@ -73,5 +73,6 @@ The app should never trust a client-supplied `accountId`, `from`, message ID, or
 - [Operational constraints, security, cost, and unresolved decisions](./OPERATIONS.md)
 - [v2.00 current implementation status and rollout gates](./V2_IMPLEMENTATION_STATUS.md)
 - [Cloudflare owner setup checklist](./CLOUDFLARE_SETUP.md)
+- [v2.02 administrator password and passkey login](./ADMIN_MFA.md)
 
 These documents are **planning inputs**. They do not authorize infrastructure changes or claim a deployment occurred.
