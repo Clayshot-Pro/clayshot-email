@@ -204,16 +204,19 @@ export function App() {
   );
 
   useEffect(() => {
+    // Do not request the previous default native account before the device's
+    // actual authorized account list has loaded.
+    if (!accountsLoaded || !accounts.some(account => account.id === activeAccountId)) return;
     const timer = setTimeout(
       () => void loadMessages(folder, search),
       search ? 250 : 0,
     );
     return () => clearTimeout(timer);
-  }, [folder, search, activeAccountId, loadMessages]);
+  }, [folder, search, activeAccountId, loadMessages, accountsLoaded, accounts]);
 
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") {
+      if (accountsLoaded && accounts.some(account => account.id === activeAccountId) && document.visibilityState === "visible") {
         void loadMessages(folder, search, true);
       }
     };
@@ -223,7 +226,7 @@ export function App() {
       clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
-  }, [folder, search, loadMessages]);
+  }, [folder, search, loadMessages, accountsLoaded, accounts, activeAccountId]);
 
   const connectGmail = async () => {
     setConnectingGmail(true);
