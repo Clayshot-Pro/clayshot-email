@@ -57,6 +57,7 @@ export function ComposeModal({
   const activeSenderCount = senderOptions.filter((account) => account.status === "active").length;
   const currentSender = senderOptions.find((account) => account.id === senderAccountId) ?? fallbackAccount;
   const canChooseSender = !senderLocked && (activeSenderCount > 1 || currentSender.status !== "active");
+  const senderDisabled = currentSender.status !== "active" || currentSender.sendEnabled === false;
 
   return (
     <div className="compose-overlay" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !sending) onClose(); }}>
@@ -109,8 +110,8 @@ export function ComposeModal({
 
         <footer className="compose-footer">
           <label className="attach-control"><Icon name="paperclip" size={16} /><span>Attach</span><input type="file" multiple onChange={(event) => onFilesChange(Array.from(event.target.files ?? []))} /></label>
-          <span className="compose-from">{draftStatus === "saving" ? "Saving draft…" : draftStatus === "saved" ? "Draft saved" : currentSender.status === "active" ? `Sending as ${currentSender.emailAddress}` : "Reconnect this sender to send"}</span>
-          <button className="send-control" type="submit" disabled={sending || currentSender.status !== "active"}><Icon name="send" size={15} />{sending ? "Sending…" : "Send"}</button>
+          <span className="compose-from">{draftStatus === "saving" ? "Saving draft…" : draftStatus === "saved" ? "Draft saved" : currentSender.sendEnabled === false ? "This mailbox can receive mail; sending is not enabled" : currentSender.status === "active" ? `Sending as ${currentSender.emailAddress}` : "Reconnect this sender to send"}</span>
+          <button className="send-control" type="submit" disabled={sending || senderDisabled}><Icon name="send" size={15} />{sending ? "Sending…" : "Send"}</button>
         </footer>
       </form>
     </div>
