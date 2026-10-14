@@ -1,3 +1,4 @@
+import { credentialForMailbox } from "./deviceAuth";
 /**
  * Native mailboxes are addresses managed by the single existing passkey owner.
  * They are not distinct web-app login identities or SMTP accounts.
