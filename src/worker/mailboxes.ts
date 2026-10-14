@@ -7,6 +7,10 @@ const DOMAIN = "liamthemo.com";
 const MAX_MAILBOXES = 100;
 const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root"]);
 
+function safeDisplayName(value: string): string {
+  return value.replace(/[\\u0000-\\u001f\\u007f]/g, " ").replace(/\\s+/g, " ").trim().slice(0, 80);
+}
+
 export type NativeMailbox = {
   id: string;
   email_address: string;
@@ -71,7 +75,7 @@ export async function createNativeMailbox(request: Request, env: Env): Promise<R
   const body = await request.json<{ address?: unknown; displayName?: unknown }>().catch(() => null);
   const address = typeof body?.address === "string" ? normalizeMailboxAddress(body.address) : null;
   if (!address) return Response.json({ error: "Use an address under liamthemo.com with valid characters" }, { status: 400 });
-  const displayName = typeof body?.displayName === "string" ? body.displayName.trim().slice(0, 80) : "";
+  const displayName = typeof body?.displayName === "string" ? safeDisplayName(body.displayName) : "";
   const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM native_mailboxes").first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_MAILBOXES) return Response.json({ error: "Mailbox limit reached" }, { status: 409 });
   const id = `native:${crypto.randomUUID()}`;
@@ -107,7 +111,7 @@ export async function updateNativeMailbox(request: Request, env: Env, id: string
   if (!old) return Response.json({ error: "Mailbox not found" }, { status: 404 });
   if (old.deleted_at) return Response.json({ error: "Restore the mailbox before editing" }, { status: 409 });
   const status = body.status === "active" || body.status === "disabled" ? body.status : old.status;
-  const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 80) : old.display_name;
+  const displayName = typeof body.displayName === "string" ? safeDisplayName(body.displayName) : old.display_name;
   const quota = typeof body.quotaBytes === "number" ? body.quotaBytes : old.quota_bytes;
   const spam = typeof body.spamFilterEnabled === "boolean" ? Number(body.spamFilterEnabled) : old.spam_filter_enabled;
   await env.DB.prepare("UPDATE native_mailboxes SET status=?2, display_name=?3, quota_bytes=?4, spam_filter_enabled=?5, updated_at=CURRENT_TIMESTAMP WHERE id=?1")
