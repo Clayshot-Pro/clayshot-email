@@ -77,7 +77,7 @@ export async function updateNativeMailbox(request: Request, env: Env, id: string
     return Response.json({ error: "No changes requested" }, { status: 400 });
   const old = await mailboxById(env, id);
   if (!old) return Response.json({ error: "Mailbox not found" }, { status: 404 });
-  const status = body.status ?? old.status;
+  const status = body.status === "active" || body.status === "disabled" ? body.status : old.status;
   const displayName = typeof body.displayName === "string" ? body.displayName.trim().slice(0, 80) : old.display_name;
   await env.DB.prepare("UPDATE native_mailboxes SET status = ?2, display_name = ?3, updated_at = CURRENT_TIMESTAMP WHERE id = ?1")
     .bind(id, status, displayName).run();
