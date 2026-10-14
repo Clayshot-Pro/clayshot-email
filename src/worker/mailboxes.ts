@@ -1,11 +1,11 @@
+import { normalizeMailboxAddress } from "./mailboxRules";
+import { credentialForMailbox } from "./deviceAuth";
 /**
  * Native mailboxes are addresses managed by the single existing passkey owner.
  * They are not distinct web-app login identities or SMTP accounts.
  */
 export const PRIMARY_MAILBOX_ID = "native:primary";
-const DOMAIN = "liamthemo.com";
 const MAX_MAILBOXES = 100;
-const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root"]);
 
 function safeDisplayName(value: string): string {
   return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -23,18 +23,6 @@ export type NativeMailbox = {
   spam_filter_enabled: number;
   usage_version: number;
 };
-
-export function normalizeMailboxAddress(value: string, allowReserved = false): string | null {
-  const address = value.trim().toLowerCase();
-  const at = address.indexOf("@");
-  const local = at >= 0 ? address.slice(0, at) : address;
-  const domain = at >= 0 ? address.slice(at + 1) : DOMAIN;
-  if (domain !== DOMAIN || local.length < 1 || local.length > 64
-    || !/^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test(local)
-    || local.includes("..") || (!allowReserved && RESERVED.has(local))
-    || address.length > 254) return null;
-  return `${local}@${DOMAIN}`;
-}
 
 export async function mailboxById(env: Env, id: string): Promise<NativeMailbox | null> {
   return env.DB.prepare(
@@ -79,15 +67,25 @@ export async function createNativeMailbox(request: Request, env: Env): Promise<R
   const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM native_mailboxes").first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_MAILBOXES) return Response.json({ error: "Mailbox limit reached" }, { status: 409 });
   const id = `native:${crypto.randomUUID()}`;
+  const random = crypto.getRandomValues(new Uint8Array(32));
+  const password = btoa(String.fromCharCode(...random))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  const credential = await credentialForMailbox(id,password);
   try {
-    // The single INSERT is the source of truth; no separate provider row is necessary.
-    await env.DB.prepare("INSERT INTO native_mailboxes (id,email_address,display_name) VALUES (?1,?2,?3)")
-      .bind(id, address, displayName).run();
+    // Atomic mailbox plus credential creation; do not expose plaintext except
+    // the one-time response to the authenticated owner.
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO native_mailboxes (id,email_address,display_name) VALUES (?1,?2,?3)")
+        .bind(id,address,displayName),
+      env.DB.prepare(`INSERT INTO native_mailbox_credentials
+        (mailbox_id,password_salt,password_hash,iterations) VALUES (?1,?2,?3,?4)`)
+        .bind(id,credential.salt,credential.hash,credential.iterations),
+    ]);
   } catch {
     return Response.json({ error: "Mailbox already exists or could not be created" }, { status: 409 });
   }
   await audit(env, id, "create");
-  return Response.json({ mailbox: await mailboxById(env, id) }, { status: 201 });
+  return Response.json({ mailbox: await mailboxById(env, id), password }, { status: 201 });
 }
 
 

@@ -1,4 +1,8 @@
 import { reconcileMailboxUsage } from "./usage";
+import {
+  deviceStatus, deviceLogin, deviceLogout, deviceRemoveAccount, deviceAccountIds,
+  deviceAuthorized, adminAuthorized, rotateMailboxPassword, cleanupDeviceSessions,
+} from "./deviceAuth";
 import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox, purgeExpiredNativeMailboxes } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
@@ -11,7 +15,6 @@ import { deleteProfilePhoto, getProfile, getProfilePhoto, saveProfilePhoto } fro
 import {
   authenticationOptions,
   authStatus,
-  isAuthenticated,
   logout,
   registrationOptions,
   resetSessions,
@@ -24,7 +27,7 @@ import {
 import { APP_ORIGIN } from "./config";
 import { receiveEmail } from "./email/receive";
 import { sendEmail } from "./email/send";
-import { disconnectGoogle, googleOAuthCallback, startGoogleOAuth } from "./providers/google";
+import { googleOAuthCallback, startGoogleOAuth } from "./providers/google";
 import { pushConfig, subscribePush, unsubscribePush } from "./push";
 import { authRateLimitBucket, checkAuthRateLimit } from "./security";
 
@@ -92,6 +95,11 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     return jsonError("Too many authentication attempts", 429, { "Retry-After": "60" });
   }
 
+  // Device authentication is independent from the privileged owner passkey.
+  if (url.pathname === "/api/device/status" && request.method === "GET") return deviceStatus(request, env);
+  if (url.pathname === "/api/device/login" && request.method === "POST") return deviceLogin(request, env);
+  if (url.pathname === "/api/device/logout" && request.method === "POST") return deviceLogout(request, env);
+
   // Authentication routes that must be reachable before a session exists.
   if (url.pathname === "/api/auth/status" && request.method === "GET") return authStatus(request, env);
   if (url.pathname === "/api/auth/register/options" && request.method === "POST") return registrationOptions(request, env);
@@ -100,8 +108,71 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   if (url.pathname === "/api/auth/login/verify" && request.method === "POST") return verifyAuthentication(request, env);
   if (url.pathname === "/api/auth/logout" && request.method === "POST") return logout(request, env);
   if (url.pathname === "/api/accounts/gmail/callback" && request.method === "GET") return googleOAuthCallback(request, env);
+  if (url.pathname === "/api/accounts/gmail/connect" && request.method === "POST") return startGoogleOAuth(request, env);
 
-  if (!(await isAuthenticated(request, env))) return unauthorizedResponse();
+  // A valid device login permits only its explicitly signed-in accounts.
+  // Passkey-authenticated owner sessions retain administrative privileges.
+  const [isAdmin, accountIds] = await Promise.all([
+    adminAuthorized(request, env),
+    deviceAccountIds(request, env),
+  ]);
+  if (!isAdmin && accountIds.length === 0) return unauthorizedResponse();
+
+  const adminRoute = url.pathname === "/api/mailboxes"
+    || url.pathname.startsWith("/api/mailboxes/")
+    || url.pathname === "/api/auth/sessions"
+    || url.pathname.startsWith("/api/auth/sessions/")
+    || url.pathname.startsWith("/api/profile");
+  if (adminRoute && !isAdmin) return jsonError("Administrator passkey required", 403);
+
+  if (url.pathname === "/api/device/accounts" && request.method === "GET") {
+    return getConnectedAccounts(request, env);
+  }
+  const deviceAccountRoute = url.pathname.match(new RegExp("^/api/device/accounts/([^/]+)$"));
+  if (deviceAccountRoute && request.method === "DELETE") {
+    const id = decodedRouteId(deviceAccountRoute);
+    if (!id) return jsonError("Invalid account", 400);
+    return deviceRemoveAccount(request, env, id);
+  }
+
+  if (url.pathname === "/api/mailboxes" && request.method === "GET") {
+    return Response.json({ mailboxes: await allNativeMailboxes(env) });
+  }
+  const passwordRoute = url.pathname.match(new RegExp("^/api/mailboxes/([^/]+)/reset-password$"));
+  if (passwordRoute && request.method === "POST") {
+    const id = decodedRouteId(passwordRoute);
+    if (!id) return jsonError("Invalid mailbox ID", 400);
+    if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailbox-password-reset"))))
+      return jsonError("Too many requests", 429);
+    try { return Response.json({ password: await rotateMailboxPassword(env, id) }, { headers: { "Cache-Control": "no-store" } }); }
+    catch { return jsonError("Mailbox not found or unavailable", 404); }
+  }
+
+  // Validate the mailbox against the CURRENT device before dispatching any
+  // messages, drafts, send, attachments, or provider metadata.
+  const accountDataRoute = url.pathname === "/api/messages"
+    || url.pathname.startsWith("/api/messages/")
+    || url.pathname === "/api/send"
+    || url.pathname === "/api/drafts"
+    || url.pathname.startsWith("/api/drafts/")
+    || url.pathname.startsWith("/api/attachment-previews/")
+    || url.pathname.startsWith("/api/attachments/");
+  if (accountDataRoute) {
+    let requested = url.searchParams.get("accountId");
+    if (!requested && request.method === "POST") {
+      if (url.pathname === "/api/send") {
+        const form = await request.clone().formData().catch(() => null);
+        requested = typeof form?.get("accountId") === "string" ? String(form.get("accountId")) : null;
+      } else if (url.pathname === "/api/drafts") {
+        const body = await request.clone().json().catch(() => null) as {accountId?:unknown} | null;
+        requested = typeof body?.accountId === "string" ? body.accountId : null;
+      }
+    }
+    if (!requested && isAdmin) requested = "native:primary";
+    if (!requested || !(await deviceAuthorized(request, env, requested))) {
+      return jsonError("Account not signed in on this device", 403);
+    }
+  }
 
   // Authenticated account and session management.
   if (url.pathname === "/api/auth/sessions" && request.method === "GET") return sessionInfo(request, env);
@@ -113,29 +184,25 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     if (!sessionId) return jsonError("Invalid session id", 400);
     return revokeSession(request, env, sessionId);
   }
-  if (url.pathname === "/api/accounts/gmail/connect" && request.method === "POST") return startGoogleOAuth(env);
   if (url.pathname === "/api/contact-avatar" && request.method === "GET") return getContactAvatar(request, env);
 
   const accountRoute = url.pathname.match(/^\/api\/accounts\/([^/]+)$/);
   if (accountRoute && request.method === "DELETE") {
     const accountId = decodedRouteId(accountRoute);
     if (!accountId) return jsonError("Invalid account id", 400);
-    if (accountId.startsWith("gmail:")) return disconnectGoogle(accountId, env);
+    if (accountId.startsWith("gmail:")) return deviceRemoveAccount(request, env, accountId);
   }
 
   const avatarRoute = url.pathname.match(/^\/api\/accounts\/([^/]+)\/avatar$/);
   if (avatarRoute && request.method === "GET") {
     const accountId = decodedRouteId(avatarRoute);
     if (!accountId) return jsonError("Invalid account id", 400);
-    if (accountId.startsWith("gmail:")) return getAccountAvatar(accountId, env);
+    if (accountId.startsWith("gmail:") && await deviceAuthorized(request, env, accountId)) return getAccountAvatar(accountId, env);
   }
 
   // Mail and profile routes.
   if (url.pathname === "/api/health" && request.method === "GET") return healthResponse(env);
-  if (url.pathname === "/api/accounts" && request.method === "GET") return getConnectedAccounts(env);
-  if (url.pathname === "/api/mailboxes" && request.method === "GET") {
-    return Response.json({ mailboxes: await allNativeMailboxes(env) });
-  }
+  if (url.pathname === "/api/accounts" && request.method === "GET") return getConnectedAccounts(request, env);
   if (url.pathname === "/api/mailboxes" && request.method === "POST") {
     if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:create"))))
       return jsonError("Too many mailbox operations", 429);
@@ -230,6 +297,7 @@ export default {
   },
 
   async scheduled(_event, env, ctx): Promise<void> {
+    ctx.waitUntil(cleanupDeviceSessions(env));
     // Retry receipts only exist to prevent duplicate ingestion after transport
     // retries; they are not permanent message records.
     ctx.waitUntil(env.DB.prepare("DELETE FROM inbound_receipts WHERE first_seen_at<datetime('now','-7 days')").run().then(() => undefined));

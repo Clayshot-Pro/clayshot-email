@@ -1,3 +1,6 @@
+import { AccountSignIn } from "./AccountSignIn";
+import { unlockOwnerPasskey } from "./adminPasskey";
+import { AdminPanel } from "./components/AdminPanel";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AUTO_REFRESH_MS,
@@ -52,6 +55,10 @@ export function App() {
   const [notificationState, setNotificationState] = useState<NotificationState>("checking");
   const [pushPublicKey, setPushPublicKey] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [addCustomOpen, setAddCustomOpen] = useState(false);
   const [activeAccountId, setActiveAccountId] = useState(NATIVE_ACCOUNT_ID);
   const [connectingGmail, setConnectingGmail] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -76,10 +83,14 @@ export function App() {
     const response = await fetch("/api/accounts", { cache: "no-store" });
     if (response.ok) {
       setAccounts((await response.json() as { accounts: ConnectedAccount[] }).accounts);
+      setAccountsLoaded(true);
     }
   }, []);
 
   useEffect(() => {
+    fetch("/api/device/status", {cache:"no-store"})
+      .then(response => response.ok ? response.json() as Promise<{isAdmin:boolean}> : null)
+      .then(status => setIsAdmin(Boolean(status?.isAdmin))).catch(() => undefined);
     void refreshAccounts();
     fetch("/api/profile", { cache: "no-store" })
       .then(async (response) => response.ok
@@ -193,16 +204,19 @@ export function App() {
   );
 
   useEffect(() => {
+    // Do not request the previous default native account before the device's
+    // actual authorized account list has loaded.
+    if (!accountsLoaded || !accounts.some(account => account.id === activeAccountId)) return;
     const timer = setTimeout(
       () => void loadMessages(folder, search),
       search ? 250 : 0,
     );
     return () => clearTimeout(timer);
-  }, [folder, search, activeAccountId, loadMessages]);
+  }, [folder, search, activeAccountId, loadMessages, accountsLoaded, accounts]);
 
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") {
+      if (accountsLoaded && accounts.some(account => account.id === activeAccountId) && document.visibilityState === "visible") {
         void loadMessages(folder, search, true);
       }
     };
@@ -212,7 +226,7 @@ export function App() {
       clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
-  }, [folder, search, loadMessages]);
+  }, [folder, search, loadMessages, accountsLoaded, accounts, activeAccountId]);
 
   const connectGmail = async () => {
     setConnectingGmail(true);
@@ -241,11 +255,20 @@ export function App() {
     setDraftCount(0);
     setLoading(true);
     setActiveAccountId(id);
+    localStorage.setItem("ltm:active-mail-account", id);
     setSelected(null);
     setThread([]);
     setOpeningMessageId(null);
     setSearch("");
   };
+
+  useEffect(() => {
+    if (!accountsLoaded || accounts.length === 0) return;
+    if (accounts.some(account => account.id === activeAccountId)) return;
+    const remembered = localStorage.getItem("ltm:active-mail-account");
+    const selectedId = accounts.find(account => account.id === remembered)?.id ?? accounts[0].id;
+    switchAccount(selectedId);
+  }, [accountsLoaded, accounts, activeAccountId]);
 
   const persistDraft = useCallback(async (current: ComposeState) => {
     if (!current.draftId || !hasDraftContent(current)) return;
@@ -338,16 +361,19 @@ export function App() {
   };
 
   const removeAccount = async (id: string) => {
-    if (!confirm("Remove this Gmail inbox from LTM Mails?")) return;
+    if (!confirm("Sign out this email account on this device? Other devices stay signed in.")) return;
     setSettingsBusy("remove");
     try {
       const response = await fetch(
-        `/api/accounts/${encodeURIComponent(id)}`,
+        `/api/device/accounts/${encodeURIComponent(id)}`,
         { method: "DELETE" },
       );
       if (!response.ok) throw new Error();
 
-      if (activeAccountId === id) switchAccount(NATIVE_ACCOUNT_ID);
+      if (activeAccountId === id && accounts.length > 1) {
+        const replacement = accounts.find(account => account.id !== id);
+        if (replacement) switchAccount(replacement.id);
+      }
       if (composeAccountId === id) {
         setComposeAccountId(NATIVE_ACCOUNT_ID);
         if (compose.draftId) {
@@ -355,8 +381,9 @@ export function App() {
         }
       }
       await refreshAccounts();
+      if (!isAdmin && accounts.length <= 1) window.location.reload();
     } catch {
-      setError("Could not remove Gmail inbox");
+      setError("Could not sign out this email account");
     } finally {
       setSettingsBusy(null);
     }
@@ -402,8 +429,18 @@ export function App() {
 
   const logout = async () => {
     setSettingsBusy("logout");
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    await fetch("/api/device/logout", { method: "POST" }).catch(() => undefined);
     location.reload();
+  };
+
+  const unlockAdmin = async () => {
+    setSettingsBusy("admin-unlock");
+    try {
+      await unlockOwnerPasskey();
+      window.location.reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Administrator passkey sign-in failed");
+    } finally { setSettingsBusy(null); }
   };
 
   const openMessage = async (id: string) => {
@@ -796,7 +833,10 @@ export function App() {
         connectingGmail={connectingGmail}
         sessionCount={sessionCount}
         busy={settingsBusy}
-        onMailboxesChanged={() => { void refreshAccounts(); switchAccount(NATIVE_ACCOUNT_ID); }}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => { setSettingsOpen(false); setAdminOpen(true); }}
+        onUnlockAdmin={() => void unlockAdmin()}
+        onAddCustom={() => { setSettingsOpen(false); setAddCustomOpen(true); }}
         onClose={() => setSettingsOpen(false)}
         onToggleNotifications={() => void toggleNotifications()}
         onConnectGmail={() => void connectGmail()}
@@ -812,6 +852,20 @@ export function App() {
         onResetSessions={() => void resetSessions()}
         onLogout={() => void logout()}
       />
+      {isAdmin && adminOpen && <AdminPanel
+        onClose={() => setAdminOpen(false)}
+        onMailboxesChanged={() => { void refreshAccounts(); }}
+      />}
+      {addCustomOpen && <div className="settings-backdrop" role="presentation" onMouseDown={event => {
+        if (event.currentTarget === event.target) setAddCustomOpen(false);
+      }}>
+        <section className="settings-modal account-login-modal" role="dialog" aria-modal="true" aria-labelledby="add-custom-title">
+          <header><div><span>This device only</span><h2 id="add-custom-title">Add custom email</h2></div>
+            <button type="button" className="settings-close" onClick={() => setAddCustomOpen(false)} aria-label="Close">×</button>
+          </header>
+          <div className="settings-scroll"><AccountSignIn showGoogle={false} onSignedIn={() => window.location.reload()} /></div>
+        </section>
+      </div>}
       <SessionListModal
         open={sessionsOpen}
         sessions={sessions}

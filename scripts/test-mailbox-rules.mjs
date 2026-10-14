@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { normalizeMailboxAddress } from "../src/worker/mailboxes.ts";
+import { normalizeMailboxAddress } from "../src/worker/mailboxRules.ts";
 import { suspectedJunk } from "../src/worker/email/junk.ts";
 
 assert.equal(normalizeMailboxAddress(" Personal@LIAMTHEMO.COM "), "personal@liamthemo.com");

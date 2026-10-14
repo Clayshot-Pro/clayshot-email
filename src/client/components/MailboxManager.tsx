@@ -30,6 +30,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [newCredential, setNewCredential] = useState<{ address: string; password: string } | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [quotaGB, setQuotaGB] = useState("5");
@@ -69,7 +70,10 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await run("new", async () => {
-      await api("/api/mailboxes", "POST", { address, displayName });
+      const created = await api("/api/mailboxes", "POST", { address, displayName });
+      if (typeof created.password === "string") {
+        setNewCredential({ address: String((created.mailbox as Mailbox).email_address), password: created.password });
+      }
       setAddress(""); setDisplayName("");
     }, "Mailbox created. Cloudflare catch-all routing must be configured for new addresses to receive mail.");
   }
@@ -119,6 +123,15 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
     } finally { setBusy(null); }
   }
 
+  async function resetPassword(box: Mailbox) {
+    if (!window.confirm(`Rotate the password for ${box.email_address}? This will sign out every device using that mailbox.`)) return;
+    await run(box.id, async () => {
+      const credential = await api(`/api/mailboxes/${encodeURIComponent(box.id)}/reset-password`, "POST");
+      if (typeof credential.password !== "string") throw new Error("No password returned");
+      setNewCredential({ address: box.email_address, password: credential.password });
+    }, "Password rotated. Copy the new credential; the old password no longer works.");
+  }
+
   async function save(box: Mailbox) {
     const value = Number(quotaGB);
     if (!Number.isFinite(value) || value < 0.01 || value > 10) {
@@ -162,6 +175,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
               </div>
               <div className="settings-row-actions" style={{ flexWrap: "wrap" }}>
                 {!box.deleted_at && editing !== box.id && <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit</button>}
+                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void resetPassword(box)}>Reset password</button>}
                 {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>}
                 {!isPrimary && !box.deleted_at && (
                   <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
@@ -188,6 +202,15 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
           {busy === "new" ? "Creating…" : "Create mailbox"}
         </button>
       </form>
+      {newCredential && <div className="mailbox-generated-password" role="status">
+        <strong>One-time login for {newCredential.address}</strong>
+        <p>Copy this password now. It is not stored in readable form and will disappear when this panel closes.</p>
+        <code>{newCredential.password}</code>
+        <div className="settings-row-actions">
+          <button type="button" onClick={() => void navigator.clipboard.writeText(newCredential.password)}>Copy password</button>
+          <button type="button" onClick={() => setNewCredential(null)}>Hide password</button>
+        </div>
+      </div>}
       {notice ? <p role="status">{notice}</p> : null}
       <p>Deletion uses a 30-day recovery period. Storage usage of migrated older messages may need reconciliation against Cloudflare R2.</p>
     </section>

@@ -1,4 +1,3 @@
-import { MailboxManager } from "./MailboxManager";
 import type { ConnectedAccount, NotificationState } from "../mailTypes";
 import { notificationLabel } from "../mailUtils";
 
@@ -11,7 +10,10 @@ type Props = {
   sessionCount: number | null;
   busy: string | null;
   onClose: () => void;
-  onMailboxesChanged: () => void;
+  isAdmin: boolean;
+  onOpenAdmin: () => void;
+  onUnlockAdmin: () => void;
+  onAddCustom: () => void;
   onToggleNotifications: () => void;
   onConnectGmail: () => void;
   onRemoveAccount: (id: string) => void;
@@ -74,7 +76,7 @@ export function SettingsModal(props: Props) {
                       {account.emailAddress}
                     </small>
                   </div>
-                  {account.provider === "gmail" ? (
+                  {account.provider === "gmail" || !props.isAdmin ? (
                     <button
                       type="button"
                       disabled={props.busy !== null}
@@ -104,7 +106,18 @@ export function SettingsModal(props: Props) {
             </button>
           </section>
 
-          <MailboxManager onChanged={props.onMailboxesChanged} />
+          <section className="settings-section">
+            <h3>Add email account</h3>
+            <p>Accounts stay signed in on this device only. Removing one here does not sign it out on your other devices.</p>
+            <button className="settings-primary" type="button" onClick={props.onAddCustom}>Add custom email</button>
+          </section>
+          <section className="settings-section">
+            <h3>Administration</h3>
+            <p>Creating new email addresses and resetting their passwords requires your owner passkey.</p>
+            <button type="button" className="settings-primary" onClick={props.isAdmin ? props.onOpenAdmin : props.onUnlockAdmin}>
+              {props.isAdmin ? "Open admin panel" : "Unlock with administrator passkey"}
+            </button>
+          </section>
 
           <section className="settings-section">
             <h3>Notifications</h3>
@@ -127,7 +140,7 @@ export function SettingsModal(props: Props) {
 
           <section className="settings-section">
             <h3>Security &amp; sessions</h3>
-            <div className="settings-row">
+            {props.isAdmin ? <>\n            <div className="settings-row">
               <div>
                 <strong>Passkeys</strong>
                 <small>Passkey creation is disabled after initial setup.</small>
@@ -160,10 +173,10 @@ export function SettingsModal(props: Props) {
                 </button>
               </div>
             </div>
-            <div className="settings-row danger">
+            </> : null}\n            <div className="settings-row danger">
               <div>
                 <strong>Log out</strong>
-                <small>End this browser session and require your passkey again.</small>
+                <small>Sign out all email accounts on this device. Other devices stay signed in.</small>
               </div>
               <button
                 type="button"

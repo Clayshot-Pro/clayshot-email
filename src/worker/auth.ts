@@ -459,3 +459,15 @@ export async function revokeSession(
 
 export const unauthorizedResponse = (): Response =>
   jsonError("Authentication required", 401);
+
+
+/** A hashed, verified owner cookie reference for scoped push subscriptions. */
+export async function ownerSessionHash(request: Request, env: Env): Promise<string | null> {
+  const t = cookie(request, SESSION_COOKIE);
+  if (!t) return null;
+  const hash = await sha256Hex(t);
+  const current = await env.DB.prepare(
+    "SELECT 1 FROM auth_sessions WHERE token_hash=?1 AND expires_at>datetime('now')"
+  ).bind(hash).first();
+  return current ? hash : null;
+}
