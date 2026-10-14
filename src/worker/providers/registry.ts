@@ -58,7 +58,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: box.id === NATIVE_ACCOUNT_ID ? "/api/profile/photo" : null,
       status: box.status,
       lastSyncedAt: null,
-      sendEnabled: box.id === NATIVE_ACCOUNT_ID,
+      sendEnabled: box.id === NATIVE_ACCOUNT_ID || env.MULTI_SENDER_APPROVED === "true",
     })),
     ...result.results.map((row) => ({
       id: row.id,
