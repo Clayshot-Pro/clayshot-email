@@ -70,7 +70,12 @@ async function revokeGoogleToken(token: string): Promise<void> {
 }
 
 function redirectWithStatus(status: string): Response {
-  return Response.redirect(`${APP_ORIGIN}/?gmail=${encodeURIComponent(status)}`, 303);
+  // Construct a writable response so the OAuth callback can issue the
+  // per-device HttpOnly session cookie and clear its one-time nonce.
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `${APP_ORIGIN}/?gmail=${encodeURIComponent(status)}`, "Cache-Control": "no-store" },
+  });
 }
 
 export async function startGoogleOAuth(_request: Request, env: Env): Promise<Response> {
