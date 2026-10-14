@@ -13,6 +13,7 @@ export type NativeMailbox = {
   display_name: string;
   status: "active" | "disabled";
   quota_bytes: number;
+  used_bytes: number;
 };
 
 export function normalizeMailboxAddress(value: string): string | null {
@@ -29,7 +30,7 @@ export function normalizeMailboxAddress(value: string): string | null {
 
 export async function mailboxById(env: Env, id: string): Promise<NativeMailbox | null> {
   return env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes FROM native_mailboxes WHERE id = ?1"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes FROM native_mailboxes WHERE id = ?1"
   ).bind(id).first<NativeMailbox>();
 }
 
@@ -38,13 +39,13 @@ export async function mailboxForRecipient(env: Env, address: string): Promise<Na
   if (!normalized) return null;
   // Incoming routing rejects disabled and unknown recipients rather than silently storing them.
   return env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes FROM native_mailboxes WHERE email_address = ?1 AND status = 'active'"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes FROM native_mailboxes WHERE email_address = ?1 AND status = 'active'"
   ).bind(normalized).first<NativeMailbox>();
 }
 
 export async function allNativeMailboxes(env: Env): Promise<NativeMailbox[]> {
   const result = await env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes FROM native_mailboxes ORDER BY CASE WHEN id='native:primary' THEN 0 ELSE 1 END, created_at"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes FROM native_mailboxes ORDER BY CASE WHEN id='native:primary' THEN 0 ELSE 1 END, created_at"
   ).all<NativeMailbox>();
   return result.results;
 }
