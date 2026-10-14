@@ -44,9 +44,10 @@ export async function mailboxForRecipient(env: Env, address: string): Promise<Na
   if (!normalized) return null;
   // Exact mailbox routing has priority over plus-address aliases.
   const exact = await env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address = ?1 AND status = 'active'"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address = ?1"
   ).bind(normalized).first<NativeMailbox>();
-  if (exact) return exact;
+  // An explicitly disabled address must not be revived by plus-alias fallback.
+  if (exact) return exact.status === "active" && !exact.deleted_at ? exact : null;
   const localPart = normalized.split("@", 1)[0];
   // RFC postmaster and abuse are routed to the protected primary mailbox.
   // Plus suffixes are accepted only if the parent mailbox exists and is active.
