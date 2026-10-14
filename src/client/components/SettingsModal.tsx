@@ -11,8 +11,6 @@ type Props = {
   busy: string | null;
   onClose: () => void;
   isAdmin: boolean;
-  onOpenAdmin: () => void;
-  onUnlockAdmin: () => void;
   onAddCustom: () => void;
   onToggleNotifications: () => void;
   onConnectGmail: () => void;
@@ -113,10 +111,7 @@ export function SettingsModal(props: Props) {
           </section>
           <section className="settings-section">
             <h3>Administration</h3>
-            <p>Creating new email addresses and resetting their passwords requires your owner passkey.</p>
-            <button type="button" className="settings-primary" onClick={props.isAdmin ? props.onOpenAdmin : props.onUnlockAdmin}>
-              {props.isAdmin ? "Open admin panel" : "Unlock with administrator passkey"}
-            </button>
+            <p>Use Add custom email to sign in as admin@liamthemo.com. After password and passkey verification, the separate administration dashboard opens automatically.</p>
           </section>
 
           <section className="settings-section">
