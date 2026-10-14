@@ -248,6 +248,7 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: current.draftId,
+          accountId: composeAccountId,
           to: current.to,
           cc: current.cc,
           bcc: current.bcc,
@@ -266,7 +267,7 @@ export function App() {
     } catch {
       setDraftStatus(null);
     }
-  }, []);
+  }, [composeAccountId]);
 
   useEffect(() => {
     if (!composeOpen || sending || !hasDraftContent(compose)) return;
@@ -401,7 +402,7 @@ export function App() {
     const listItem = messages.find((message) => message.id === id);
     if (listItem?.isDraft || folder === "drafts") {
       try {
-        const response = await fetch(`/api/drafts/${encodeURIComponent(id)}`);
+        const response = await fetch(`/api/drafts/${encodeURIComponent(id)}?accountId=${encodeURIComponent(activeAccountId)}`);
         const data = await response.json() as { draft: DraftDetail };
         if (!response.ok) throw new Error();
 
@@ -412,7 +413,7 @@ export function App() {
             (account) => account.id === savedSenderId && account.status === "active",
           )
           ? savedSenderId
-          : activeAccountId;
+          : draft.accountId || activeAccountId;
         setCompose({
           to: draft.to,
           cc: draft.cc,
@@ -621,7 +622,7 @@ export function App() {
   const discardCompose = async () => {
     if (compose.draftId) {
       localStorage.removeItem(draftSenderKey(compose.draftId));
-      await fetch(`/api/drafts/${encodeURIComponent(compose.draftId)}`, {
+      await fetch(`/api/drafts/${encodeURIComponent(compose.draftId)}?accountId=${encodeURIComponent(composeAccountId)}`, {
         method: "DELETE",
       }).catch(() => undefined);
     }
@@ -731,6 +732,7 @@ export function App() {
           thread={thread}
           folderLabel={label}
           loading={Boolean(openingMessageId && !selected)}
+          accountId={activeAccountId}
           onBack={closeReader}
           onReply={startReply}
           onForward={startForward}
@@ -774,6 +776,7 @@ export function App() {
         connectingGmail={connectingGmail}
         sessionCount={sessionCount}
         busy={settingsBusy}
+        onMailboxesChanged={() => { void refreshAccounts(); switchAccount(NATIVE_ACCOUNT_ID); }}
         onClose={() => setSettingsOpen(false)}
         onToggleNotifications={() => void toggleNotifications()}
         onConnectGmail={() => void connectGmail()}
