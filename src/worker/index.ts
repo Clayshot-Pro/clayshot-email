@@ -1,3 +1,4 @@
+import { reconcileMailboxUsage } from "./usage";
 import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
@@ -139,6 +140,11 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "mailboxes:create"))))
       return jsonError("Too many mailbox operations", 429);
     return createNativeMailbox(request, env);
+  }
+  const reconcileRoute = url.pathname.match(/^\/api\/mailboxes\/([^/]+)\/reconcile$/);
+  if (reconcileRoute && request.method === "POST") {
+    const id = decodePathSegment(reconcileRoute[1]);
+    return id ? reconcileMailboxUsage(env, id) : jsonError("Invalid mailbox ID", 400);
   }
   const lifecycleRoute = url.pathname.match(/^\/api\/mailboxes\/([^/]+)\/(restore|purge)$/);
   if (lifecycleRoute && request.method === "POST") {
