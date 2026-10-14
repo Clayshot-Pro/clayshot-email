@@ -608,9 +608,21 @@ export function App() {
   };
 
   const changeComposeAccount = (accountId: string) => {
+    if (accountId === composeAccountId) return;
+    // Draft IDs are mailbox-owned. Moving the sender must create a new draft
+    // identity rather than trying to update an ID owned by another mailbox.
+    const oldId = compose.draftId;
+    const previousAccountId = composeAccountId;
+    const nextId = crypto.randomUUID();
+    setCompose((current) => ({ ...current, draftId: nextId }));
     setComposeAccountId(accountId);
-    if (compose.draftId) {
-      localStorage.setItem(draftSenderKey(compose.draftId), accountId);
+    localStorage.setItem(draftSenderKey(nextId), accountId);
+    if (oldId) {
+      localStorage.removeItem(draftSenderKey(oldId));
+      persistedDraftIds.current.delete(oldId);
+      void fetch(`/api/drafts/${encodeURIComponent(oldId)}?accountId=${encodeURIComponent(previousAccountId)}`, {
+        method: "DELETE",
+      }).catch(() => undefined);
     }
   };
 
