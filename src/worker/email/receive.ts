@@ -95,11 +95,10 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const nowIso = now.toISOString();
   const headerMessageId = (parsed.messageId?.trim() || message.headers.get("message-id")?.trim() || `<${id}@email.liamthemo.com>`).slice(0, 998);
   if (await env.DB.prepare("SELECT 1 FROM messages WHERE mailbox_id = ?1 AND original_message_id = ?2 LIMIT 1").bind(mailbox.id, headerMessageId).first()) return;
-  // The legacy globally unique message_id column cannot represent one RFC
-  // Message-ID in two mailboxes. Preserve it in original_message_id for every
-  // recipient and use NULL on additional deliveries instead of dropping mail.
-  const alreadyGlobal = await env.DB.prepare("SELECT 1 FROM messages WHERE message_id = ?1 LIMIT 1").bind(headerMessageId).first();
-  const storedMessageId = alreadyGlobal ? null : headerMessageId;
+  // The legacy message_id column is globally unique. Always store newly
+  // received RFC IDs in original_message_id so concurrent multi-recipient
+  // deliveries cannot collide on the old unique constraint.
+  const storedMessageId = null;
   const inReplyTo = (parsed.inReplyTo?.trim() || message.headers.get("in-reply-to")?.trim() || null)?.slice(0, 998) || null;
   const references = (parsed.references?.trim() || message.headers.get("references")?.trim() || null)?.slice(0, 8192) || null;
   const sender = parsed.from;
