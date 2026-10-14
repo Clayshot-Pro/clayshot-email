@@ -20,14 +20,14 @@ export type NativeMailbox = {
   usage_version: number;
 };
 
-export function normalizeMailboxAddress(value: string): string | null {
+export function normalizeMailboxAddress(value: string, allowReserved = false): string | null {
   const address = value.trim().toLowerCase();
   const at = address.indexOf("@");
   const local = at >= 0 ? address.slice(0, at) : address;
   const domain = at >= 0 ? address.slice(at + 1) : DOMAIN;
   if (domain !== DOMAIN || local.length < 1 || local.length > 64
     || !/^[a-z0-9](?:[a-z0-9._+-]*[a-z0-9])?$/.test(local)
-    || local.includes("..") || RESERVED.has(local)
+    || local.includes("..") || (!allowReserved && RESERVED.has(local))
     || address.length > 254) return null;
   return `${local}@${DOMAIN}`;
 }
@@ -39,7 +39,7 @@ export async function mailboxById(env: Env, id: string): Promise<NativeMailbox |
 }
 
 export async function mailboxForRecipient(env: Env, address: string): Promise<NativeMailbox | null> {
-  const normalized = normalizeMailboxAddress(address);
+  const normalized = normalizeMailboxAddress(address, true);
   if (!normalized) return null;
   // Exact mailbox routing has priority over plus-address aliases.
   const exact = await env.DB.prepare(
