@@ -1,6 +1,7 @@
 import { resolveProvider } from "../providers/registry";
 type DraftRow = {
   id: string;
+  mailbox_id: string;
   thread_id: string | null;
   to_addresses: string;
   cc_addresses: string;
@@ -33,6 +34,7 @@ function splitRecipients(value: unknown): string[] {
 function draftResponse(row: DraftRow) {
   return {
     id: row.id,
+    accountId: row.mailbox_id,
     threadId: row.thread_id,
     to: parseArray(row.to_addresses).join(", "),
     cc: parseArray(row.cc_addresses).join(", "),
@@ -50,7 +52,7 @@ export async function getDraft(id: string, env: Env, accountId?: string | null):
   const provider = await resolveProvider(env, accountId);
   if (!provider) return Response.json({ error: "Account not found" }, { status: 404 });
   const row = await env.DB.prepare(
-    `SELECT id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
+    `SELECT id, mailbox_id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
             reply_to_message_id, forward_message_id, created_at, updated_at
        FROM drafts WHERE id = ?1 AND mailbox_id = ?2`,
   ).bind(id, provider.accountId).first<DraftRow>();
@@ -132,7 +134,7 @@ export async function saveDraft(request: Request, env: Env): Promise<Response> {
   ).run();
 
   const row = await env.DB.prepare(
-    `SELECT id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
+    `SELECT id, mailbox_id, thread_id, to_addresses, cc_addresses, bcc_addresses, subject, body_text,
             reply_to_message_id, forward_message_id, created_at, updated_at
        FROM drafts WHERE id = ?1 AND mailbox_id = ?2`,
   ).bind(id, provider.accountId).first<DraftRow>();
