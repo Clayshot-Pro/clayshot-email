@@ -138,7 +138,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   if (url.pathname === "/api/mailboxes" && request.method === "POST") {
     return createNativeMailbox(request, env);
   }
-  const mailboxRoute = url.pathname.match(/^\\/api\\/mailboxes\\/([^/]+)$/);
+  const mailboxRoute = url.pathname.match(new RegExp("^/api/mailboxes/([^/]+)$"));
   if (mailboxRoute && request.method === "PATCH") {
     const id = decodedRouteId(mailboxRoute);
     if (!id) return jsonError("Invalid mailbox ID", 400);
