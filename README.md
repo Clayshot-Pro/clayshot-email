@@ -82,6 +82,10 @@ scripts/                    build/asset and deployment helper scripts
 .github/workflows/          version-branch validation and security scanning
 ```
 
+## v2.01: Device-specific sign-ins and owner administration
+
+The optional `v2.01` upgrade introduces **separate account sign-ins per device**: Google OAuth and custom email/password on the sign-in screen, and a distinct, owner-passkey-protected admin panel for creating and managing custom addresses. Existing Google mail credentials remain encrypted server-side and are only exposed after that device authorizes its account. [Architecture, migration and validation](./docs/multi-mailbox/DEVICE_SIGNIN_ADMIN.md).
+
 ## Planned: Cloudflare-native multi-mailbox webmail
 
 A documentation-only proposal describes how to add multiple native `@liamthemo.com` mailboxes, per-mailbox folders and sender selection within the existing Cloudflare-hosted web app. It does **not** add IMAP/SMTP logins or deploy new mailbox capabilities. Keep the current `contact@liamthemo.com` mailbox and Gmail connections intact during implementation.
