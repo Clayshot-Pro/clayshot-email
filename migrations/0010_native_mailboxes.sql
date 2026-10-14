@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS native_mailboxes (
   display_name TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
   quota_bytes INTEGER NOT NULL DEFAULT 5368709120 CHECK (quota_bytes >= 0),
+  used_bytes INTEGER NOT NULL DEFAULT 0 CHECK (used_bytes >= 0),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -30,3 +31,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_mailbox_original_id
   WHERE direction = 'inbound' AND original_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_drafts_mailbox_updated ON drafts (mailbox_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_threads_mailbox ON threads (mailbox_id, latest_message_at DESC);
+
+-- Approximate size of legacy metadata for initial quota accounting; R2 raw MIME
+-- blobs from before v2.00 require a private inventory for exact usage.
+UPDATE native_mailboxes SET used_bytes = COALESCE((
+  SELECT SUM(COALESCE(LENGTH(body_text),0) + COALESCE(LENGTH(body_html),0))
+  FROM messages WHERE mailbox_id='native:primary'
+),0) WHERE id='native:primary';
