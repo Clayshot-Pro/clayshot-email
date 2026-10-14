@@ -15,10 +15,10 @@ for migration in sorted((ROOT / "migrations").glob("*.sql")):
         )
         db.execute(
             """INSERT INTO messages
-               (id,message_id,thread_id,direction,from_address,to_addresses,subject,received_at,is_read)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+               (id,message_id,thread_id,direction,from_address,to_addresses,subject,received_at,is_read,body_text)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
             ("message-original", "<existing@sender.test>", "thread-original", "inbound",
-             "sender@test.com", '["contact@liamthemo.com"]', "existing", "2026-10-01", 1),
+             "sender@test.com", '["contact@liamthemo.com"]', "existing", "2026-10-01", 1, "legacy email body"),
         )
         db.execute(
             "INSERT INTO drafts (id,subject,body_text) VALUES (?,?,?)",
