@@ -20,7 +20,7 @@
 2. In **R2 > ltm-email-service-mail**, create an independent, access-controlled copy/export of existing raw MIME and attachments. R2 objects must be recoverable at the same logical point as D1 references; a D1 backup **alone is not an email backup**.
 3. Verify a sample D1 and R2 restore **away from production**. Confirm a historical raw message and an attachment can be read, and inventory the number of messages, threads and drafts. Do not paste private content, tokens, IDs or raw mail into public GitHub logs.
 4. Preserve a snapshot of the existing Email Routing rules and sender setup so they can be restored safely.
-5. Only then proceed with the planned **main-only** deployment and D1 migrations `0010`/`0011`.
+5. Only then proceed with the planned **main-only** deployment and D1 migrations `0010`/`0011`/`0012`.
 
 **Do not run a destructive D1 rollback after the upgrade.** The migrations are additive; leaving their added columns/tables in place is safer than reversing them under production email traffic.
 
