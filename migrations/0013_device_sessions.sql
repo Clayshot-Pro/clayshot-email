@@ -33,3 +33,4 @@ ALTER TABLE oauth_states ADD COLUMN device_nonce_hash TEXT;
 
 -- Push subscriptions must be checked against the current device grants.
 ALTER TABLE push_subscriptions ADD COLUMN device_session_id TEXT;
+ALTER TABLE push_subscriptions ADD COLUMN owner_session_hash TEXT;
