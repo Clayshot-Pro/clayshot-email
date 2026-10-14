@@ -101,6 +101,9 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
           ) : !message.isDeleted ? (
             <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isArchived: !message.isArchived }, true)} aria-label={message.isArchived ? "Unarchive message" : "Archive message"}><Icon name="archive" size={17}/><span>{message.isArchived ? "Unarchive" : "Archive"}</span></button>
           ) : null}
+          {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
+            <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isJunk: true }, true)} aria-label="Mark as junk"><Icon name="junk" size={17}/><span>Junk</span></button>
+          ) : null}
           <button className="mobile-reader-action" type="button" onClick={onReply} aria-label="Reply to message"><Icon name="reply" size={17}/><span>Reply</span></button>
           {!message.isDeleted ? (
             <button className="mobile-reader-action destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)} aria-label="Delete message"><Icon name="trash" size={17}/><span>Delete</span></button>
@@ -168,6 +171,9 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
           <button type="button" onClick={() => onPatch({ isJunk: false }, true)}><Icon name="inbox" size={16}/>Not junk</button>
         ) : !message.isDeleted ? (
           <button type="button" onClick={() => onPatch({ isArchived: !message.isArchived }, true)}><Icon name="archive" size={16}/>{message.isArchived ? "Unarchive" : "Archive"}</button>
+        ) : null}
+        {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
+          <button type="button" onClick={() => onPatch({ isJunk: true }, true)}><Icon name="junk" size={16}/>Junk</button>
         ) : null}
         {!message.isDeleted ? (
           <button className="destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)}><Icon name="trash" size={16}/>Delete</button>
