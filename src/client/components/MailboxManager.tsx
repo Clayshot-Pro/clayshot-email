@@ -6,6 +6,7 @@ type Mailbox = {
   display_name: string;
   status: "active" | "disabled";
   quota_bytes: number;
+  used_bytes: number;
 };
 
 export function MailboxManager({ onChanged }: { onChanged: () => void }) {
@@ -73,7 +74,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
             <span className="settings-avatar-fallback">{box.email_address[0]?.toUpperCase()}</span>
             <div>
               <strong>{box.email_address}</strong>
-              <small>{box.status === "active" ? "Active" : "Disabled"}{box.display_name ? ` · ${box.display_name}` : ""}</small>
+              <small>{box.status === "active" ? "Active" : "Disabled"}{box.display_name ? ` · ${box.display_name}` : ""} · ~{Math.round(box.used_bytes / 1048576)} MB / {Math.round(box.quota_bytes / 1073741824)} GB</small>
             </div>
             {box.id !== "native:primary" ? (
               <button type="button" disabled={busy} onClick={() => void toggle(box)}>
