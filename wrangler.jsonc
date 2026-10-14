@@ -36,6 +36,7 @@
       "name": "EMAIL_MULTI"
     }
   ],
+  "triggers": { "crons": ["0 4 * * *"] },
   "observability": {
     "enabled": true
   }
