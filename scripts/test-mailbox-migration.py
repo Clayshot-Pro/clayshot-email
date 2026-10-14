@@ -159,3 +159,28 @@ assert db.execute(
     "SELECT COUNT(*) FROM native_mailboxes WHERE id=? AND purge_after>CURRENT_TIMESTAMP", (box,)
 ).fetchone()[0] == 1
 print("PASS: staged deletion, idempotent sends, and R2 usage reconciliation schema")
+
+# v2.01: sessions are bound to one browser and one explicitly signed-in account.
+assert "device_nonce_hash" in [field[1] for field in db.execute("PRAGMA table_info(oauth_states)")]
+assert "device_session_id" in [field[1] for field in db.execute("PRAGMA table_info(push_subscriptions)")]
+assert "owner_session_hash" in [field[1] for field in db.execute("PRAGMA table_info(push_subscriptions)")]
+assert db.execute("SELECT COUNT(*) FROM native_mailbox_credentials").fetchone()[0] == 0
+db.execute("""INSERT INTO native_mailbox_credentials
+    (mailbox_id,password_salt,password_hash,iterations) VALUES (?,?,?,?)""",
+    (box, "test-salt-not-a-real-password", "test-hash", 310000))
+db.execute("""INSERT INTO device_sessions
+    (id,token_hash,expires_at) VALUES (?,?,datetime('now','+30 days'))""",
+    ("device-one", "hash-one",))
+db.execute("""INSERT INTO device_sessions
+    (id,token_hash,expires_at) VALUES (?,?,datetime('now','+30 days'))""",
+    ("device-two", "hash-two",))
+db.execute("""INSERT INTO device_session_accounts
+    (session_id,account_id,provider) VALUES (?,?,?)""",
+    ("device-one", box, "native"))
+assert db.execute("SELECT COUNT(*) FROM device_session_accounts WHERE session_id='device-one'").fetchone()[0] == 1
+assert db.execute("SELECT COUNT(*) FROM device_session_accounts WHERE session_id='device-two'").fetchone()[0] == 0
+db.execute("DELETE FROM device_sessions WHERE id='device-one'")
+assert db.execute("SELECT COUNT(*) FROM device_session_accounts WHERE session_id='device-one'").fetchone()[0] == 0
+db.execute("DELETE FROM native_mailbox_credentials WHERE mailbox_id=?", (box,))
+assert db.execute("SELECT COUNT(*) FROM native_mailboxes WHERE id=?", (box,)).fetchone()[0] == 1
+print("PASS: isolated per-device grants, schema and session cascade")

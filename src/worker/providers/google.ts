@@ -1,4 +1,5 @@
 import { APP_ORIGIN } from "../config";
+import { prepareOAuthNonce, oauthNonceMatches, tokenHash, grantGoogleDeviceSession, clearOAuthCookie } from "../deviceAuth";
 import { decryptSecret, encryptSecret } from "./crypto";
 import {
   GOOGLE_REVOKE_ENDPOINT,
@@ -27,6 +28,7 @@ type GmailProfile = {
 
 type OAuthStateRow = {
   pkce_verifier_encrypted: string;
+  device_nonce_hash: string | null;
 };
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -68,16 +70,22 @@ async function revokeGoogleToken(token: string): Promise<void> {
 }
 
 function redirectWithStatus(status: string): Response {
-  return Response.redirect(`${APP_ORIGIN}/?gmail=${encodeURIComponent(status)}`, 303);
+  // Construct a writable response so the OAuth callback can issue the
+  // per-device HttpOnly session cookie and clear its one-time nonce.
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `${APP_ORIGIN}/?gmail=${encodeURIComponent(status)}`, "Cache-Control": "no-store" },
+  });
 }
 
-export async function startGoogleOAuth(env: Env): Promise<Response> {
+export async function startGoogleOAuth(_request: Request, env: Env): Promise<Response> {
   try {
     requireGoogleConfig(env);
   } catch {
     return Response.json({ error: "Gmail connection is not configured" }, { status: 503 });
   }
 
+  const { nonce, setCookie } = prepareOAuthNonce();
   const state = randomBase64Url();
   const verifier = randomBase64Url(48);
   const stateHash = await sha256Hex(state);
@@ -89,14 +97,15 @@ export async function startGoogleOAuth(env: Env): Promise<Response> {
       id_hash,
       provider,
       pkce_verifier_encrypted,
-      expires_at
+      expires_at, device_nonce_hash
     )
-    VALUES (?1, 'gmail', ?2, ?3)
+    VALUES (?1, 'gmail', ?2, ?3, ?4)
   `)
     .bind(
       stateHash,
       await encryptSecret(env, { verifier }, `oauth:${stateHash}`),
       expiresAt,
+      await tokenHash(nonce),
     )
     .run();
 
@@ -115,7 +124,7 @@ export async function startGoogleOAuth(env: Env): Promise<Response> {
 
   return Response.json({
     authorizationUrl: `https://accounts.google.com/o/oauth2/v2/auth?${query}`,
-  });
+  }, { headers: { "Set-Cookie": setCookie, "Cache-Control": "no-store" } });
 }
 
 export async function googleOAuthCallback(request: Request, env: Env): Promise<Response> {
@@ -139,11 +148,12 @@ export async function googleOAuthCallback(request: Request, env: Env): Promise<R
     WHERE id_hash = ?1
       AND provider = 'gmail'
       AND expires_at > CURRENT_TIMESTAMP
-    RETURNING pkce_verifier_encrypted
+    RETURNING pkce_verifier_encrypted,device_nonce_hash
   `)
     .bind(stateHash)
     .first<OAuthStateRow>();
   if (!stateRow) return redirectWithStatus("expired");
+  if (!(await oauthNonceMatches(request, stateRow.device_nonce_hash))) return redirectWithStatus("invalid_state");
 
   let verifier: string;
   try {
@@ -278,7 +288,11 @@ export async function googleOAuthCallback(request: Request, env: Env): Promise<R
     return redirectWithStatus("storage_failed");
   }
 
-  return redirectWithStatus("connected");
+  const sessionCookie = await grantGoogleDeviceSession(request, env, accountId);
+  const response = redirectWithStatus("connected");
+  if (sessionCookie) response.headers.append("Set-Cookie", sessionCookie);
+  response.headers.append("Set-Cookie", clearOAuthCookie());
+  return response;
 }
 
 export async function disconnectGoogle(accountId: string, env: Env): Promise<Response> {
