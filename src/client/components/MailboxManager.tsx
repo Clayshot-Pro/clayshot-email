@@ -98,6 +98,27 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
     }, "Mailbox and stored content permanently deleted.");
   }
 
+  async function reconcile(box: Mailbox) {
+    setBusy(box.id); setNotice(null);
+    try {
+      for (let i = 0; i < 500; i++) {
+        const result = await api(`/api/mailboxes/${encodeURIComponent(box.id)}/reconcile`, "POST");
+        if (result.complete === true) {
+          if (result.applied === true) {
+            setNotice(`Storage reconciled: ${(Number(result.countedBytes) / 1048576).toFixed(1)} MB.`);
+          } else {
+            setNotice(String(result.warning ?? "Storage counter could not be reconciled."));
+          }
+          await load();
+          return;
+        }
+      }
+      setNotice("Reconciliation is incomplete. Run it again to continue.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Storage reconciliation failed");
+    } finally { setBusy(null); }
+  }
+
   async function save(box: Mailbox) {
     const value = Number(quotaGB);
     if (!Number.isFinite(value) || value < 0.01 || value > 10) {
@@ -141,6 +162,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
               </div>
               <div className="settings-row-actions" style={{ flexWrap: "wrap" }}>
                 {!box.deleted_at && editing !== box.id && <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit</button>}
+                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>
                 {!isPrimary && !box.deleted_at && (
                   <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
                     {box.status === "active" ? "Disable" : "Enable"}
