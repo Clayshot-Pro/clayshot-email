@@ -5,7 +5,7 @@
 export const PRIMARY_MAILBOX_ID = "native:primary";
 const DOMAIN = "liamthemo.com";
 const MAX_MAILBOXES = 100;
-const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root", "admin"]);
+const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root"]);
 
 export type NativeMailbox = {
   id: string;
@@ -42,10 +42,22 @@ export async function mailboxById(env: Env, id: string): Promise<NativeMailbox |
 export async function mailboxForRecipient(env: Env, address: string): Promise<NativeMailbox | null> {
   const normalized = normalizeMailboxAddress(address);
   if (!normalized) return null;
-  // Incoming routing rejects disabled and unknown recipients rather than silently storing them.
-  return env.DB.prepare(
+  // Exact mailbox routing has priority over plus-address aliases.
+  const exact = await env.DB.prepare(
     "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address = ?1 AND status = 'active'"
   ).bind(normalized).first<NativeMailbox>();
+  if (exact) return exact;
+  const localPart = normalized.split("@", 1)[0];
+  // RFC postmaster and abuse are routed to the protected primary mailbox.
+  // Plus suffixes are accepted only if the parent mailbox exists and is active.
+  const alias = localPart === "postmaster" || localPart === "abuse"
+    ? "contact@liamthemo.com"
+    : localPart.includes("+")
+      ? `${localPart.split("+", 1)[0]}@liamthemo.com`
+      : null;
+  return alias ? env.DB.prepare(
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, forwarded_to, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address=?1 AND status='active'"
+  ).bind(alias).first<NativeMailbox>() : null;
 }
 
 export async function allNativeMailboxes(env: Env): Promise<NativeMailbox[]> {
