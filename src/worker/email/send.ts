@@ -231,7 +231,7 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     }
 
     replyTarget = await env.DB.prepare(`
-      SELECT id, message_id, thread_id, reference_ids, subject
+      SELECT id, COALESCE(original_message_id, message_id) AS message_id, thread_id, reference_ids, subject
       FROM messages
       WHERE id = ?1 AND mailbox_id = ?2
     `)
