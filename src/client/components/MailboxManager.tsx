@@ -162,7 +162,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
               </div>
               <div className="settings-row-actions" style={{ flexWrap: "wrap" }}>
                 {!box.deleted_at && editing !== box.id && <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit</button>}
-                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>
+                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>}
                 {!isPrimary && !box.deleted_at && (
                   <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
                     {box.status === "active" ? "Disable" : "Enable"}
