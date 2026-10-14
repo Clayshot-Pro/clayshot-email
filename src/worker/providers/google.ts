@@ -73,7 +73,7 @@ function redirectWithStatus(status: string): Response {
   return Response.redirect(`${APP_ORIGIN}/?gmail=${encodeURIComponent(status)}`, 303);
 }
 
-export async function startGoogleOAuth(request: Request, env: Env): Promise<Response> {
+export async function startGoogleOAuth(_request: Request, env: Env): Promise<Response> {
   try {
     requireGoogleConfig(env);
   } catch {
