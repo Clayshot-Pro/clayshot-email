@@ -35,6 +35,10 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   const [editName, setEditName] = useState("");
   const [quotaGB, setQuotaGB] = useState("5");
   const [spamEnabled, setSpamEnabled] = useState(false);
+  const [passwordFor, setPasswordFor] = useState<string | null>(null);
+  const [customPassword, setCustomPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -123,13 +127,28 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
     } finally { setBusy(null); }
   }
 
+  async function setCustomPassword(box: Mailbox) {
+    if (customPassword.length < 16 || customPassword.length > 128) {
+      setNotice("Choose a password between 16 and 128 characters"); return;
+    }
+    if (customPassword !== confirmPassword) {
+      setNotice("The confirmation does not match the new password"); return;
+    }
+    if (!window.confirm(`Set a new password for ${box.email_address}? All signed-in devices using this mailbox will need to sign in again.`)) return;
+    await run(box.id, async () => {
+      await api(`/api/mailboxes/${encodeURIComponent(box.id)}/reset-password`, "POST", {password:customPassword});
+      setCustomPassword("");setConfirmPassword("");setShowPassword(false);setPasswordFor(null);
+      setNewCredential(null);
+    }, "Password updated. All previous mailbox device sessions have been revoked.");
+  }
+
   async function resetPassword(box: Mailbox) {
-    if (!window.confirm(`Rotate the password for ${box.email_address}? This will sign out every device using that mailbox.`)) return;
+    if (!window.confirm(`Generate a new password for ${box.email_address}? This will sign out every device using that mailbox.`)) return;
     await run(box.id, async () => {
       const credential = await api(`/api/mailboxes/${encodeURIComponent(box.id)}/reset-password`, "POST");
       if (typeof credential.password !== "string") throw new Error("No password returned");
       setNewCredential({ address: box.email_address, password: credential.password });
-    }, "Password rotated. Copy the new credential; the old password no longer works.");
+    }, "New password generated. Copy it now; the previous password no longer works.");
   }
 
   async function save(box: Mailbox) {
@@ -161,6 +180,26 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
                 <small>{box.deleted_at ? "Pending deletion" : box.status === "active" ? "Active" : "Disabled"}
                   {" · "}{(box.used_bytes / 1048576).toFixed(1)} MB counted / {(box.quota_bytes / 1073741824).toFixed(2)} GB
                 </small>
+                {passwordFor===box.id && !box.deleted_at ? (
+                  <form className="mailbox-password-form" onSubmit={event => {
+                    event.preventDefault();void setCustomPassword(box);
+                  }}>
+                    <label htmlFor={`password-${box.id}`}>New password
+                      <input id={`password-${box.id}`} type={showPassword?"text":"password"}
+                        autoComplete="new-password" minLength={16} maxLength={128} value={customPassword}
+                        onChange={event=>setCustomPassword(event.target.value)} required/>
+                    </label>
+                    <label htmlFor={`confirm-${box.id}`}>Confirm password
+                      <input id={`confirm-${box.id}`} type={showPassword?"text":"password"}
+                        autoComplete="new-password" minLength={16} maxLength={128} value={confirmPassword}
+                        onChange={event=>setConfirmPassword(event.target.value)} required/>
+                    </label>
+                    <label className="mailbox-password-show"><input type="checkbox" checked={showPassword}
+                      onChange={event=>setShowPassword(event.target.checked)}/> Show passwords</label>
+                    <small>At least 16 characters. Updating this password signs out devices using this mailbox.</small>
+                    <button className="settings-primary" type="submit" disabled={busy!==null}>Update password</button>
+                  </form>
+                ) : null}
                 {editing === box.id ? (
                   <div style={{ display: "grid", gap: 7, marginTop: 10 }}>
                     <label>Display name <input value={editName} maxLength={80} onChange={e => setEditName(e.target.value)} /></label>
@@ -175,7 +214,11 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
               </div>
               <div className="settings-row-actions" style={{ flexWrap: "wrap" }}>
                 {!box.deleted_at && editing !== box.id && <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit</button>}
-                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void resetPassword(box)}>Reset password</button>}
+                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => {
+                  setPasswordFor(passwordFor===box.id?null:box.id);
+                  setCustomPassword("");setConfirmPassword("");setShowPassword(false);setNotice(null);
+                }}>{passwordFor===box.id?"Cancel password change":"Set password"}</button>}
+                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void resetPassword(box)}>Generate password</button>}
                 {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>}
                 {!isPrimary && !box.deleted_at && (
                   <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
