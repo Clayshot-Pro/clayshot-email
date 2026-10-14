@@ -65,6 +65,7 @@ export function App() {
   const persistedDraftIds = useRef(new Set<string>());
   const detailCache = useRef(new Map<string, DetailCacheEntry>());
   const openRequest = useRef(0);
+  const listRequest = useRef(0);
 
   const detailCacheKey = useCallback(
     (id: string) => `${activeAccountId}:${id}`,
@@ -156,6 +157,7 @@ export function App() {
 
   const loadMessages = useCallback(
     async (activeFolder = folder, query = search, silent = false) => {
+      const requestId = ++listRequest.current;
       if (!silent) {
         setLoading(true);
         setError(null);
@@ -175,15 +177,16 @@ export function App() {
           unreadCount: number;
           draftCount: number;
         };
+        if (requestId !== listRequest.current) return;
         setMessages(data.messages);
         setUnreadCount(data.unreadCount);
         setDraftCount(data.draftCount);
       } catch (caught) {
-        if (!silent) {
+        if (!silent && requestId === listRequest.current) {
           setError(caught instanceof Error ? caught.message : "Could not load mail");
         }
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent && requestId === listRequest.current) setLoading(false);
       }
     },
     [folder, search, activeAccountId],
@@ -232,6 +235,11 @@ export function App() {
 
   const switchAccount = (id: string) => {
     openRequest.current += 1;
+    listRequest.current += 1;
+    setMessages([]);
+    setUnreadCount(0);
+    setDraftCount(0);
+    setLoading(true);
     setActiveAccountId(id);
     setSelected(null);
     setThread([]);
@@ -248,6 +256,7 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: current.draftId,
+          accountId: composeAccountId,
           to: current.to,
           cc: current.cc,
           bcc: current.bcc,
@@ -266,7 +275,7 @@ export function App() {
     } catch {
       setDraftStatus(null);
     }
-  }, []);
+  }, [composeAccountId]);
 
   useEffect(() => {
     if (!composeOpen || sending || !hasDraftContent(compose)) return;
@@ -401,7 +410,7 @@ export function App() {
     const listItem = messages.find((message) => message.id === id);
     if (listItem?.isDraft || folder === "drafts") {
       try {
-        const response = await fetch(`/api/drafts/${encodeURIComponent(id)}`);
+        const response = await fetch(`/api/drafts/${encodeURIComponent(id)}?accountId=${encodeURIComponent(activeAccountId)}`);
         const data = await response.json() as { draft: DraftDetail };
         if (!response.ok) throw new Error();
 
@@ -412,7 +421,7 @@ export function App() {
             (account) => account.id === savedSenderId && account.status === "active",
           )
           ? savedSenderId
-          : activeAccountId;
+          : draft.accountId || activeAccountId;
         setCompose({
           to: draft.to,
           cc: draft.cc,
@@ -607,9 +616,21 @@ export function App() {
   };
 
   const changeComposeAccount = (accountId: string) => {
+    if (accountId === composeAccountId) return;
+    // Draft IDs are mailbox-owned. Moving the sender must create a new draft
+    // identity rather than trying to update an ID owned by another mailbox.
+    const oldId = compose.draftId;
+    const previousAccountId = composeAccountId;
+    const nextId = crypto.randomUUID();
+    setCompose((current) => ({ ...current, draftId: nextId }));
     setComposeAccountId(accountId);
-    if (compose.draftId) {
-      localStorage.setItem(draftSenderKey(compose.draftId), accountId);
+    localStorage.setItem(draftSenderKey(nextId), accountId);
+    if (oldId) {
+      localStorage.removeItem(draftSenderKey(oldId));
+      persistedDraftIds.current.delete(oldId);
+      void fetch(`/api/drafts/${encodeURIComponent(oldId)}?accountId=${encodeURIComponent(previousAccountId)}`, {
+        method: "DELETE",
+      }).catch(() => undefined);
     }
   };
 
@@ -621,7 +642,7 @@ export function App() {
   const discardCompose = async () => {
     if (compose.draftId) {
       localStorage.removeItem(draftSenderKey(compose.draftId));
-      await fetch(`/api/drafts/${encodeURIComponent(compose.draftId)}`, {
+      await fetch(`/api/drafts/${encodeURIComponent(compose.draftId)}?accountId=${encodeURIComponent(composeAccountId)}`, {
         method: "DELETE",
       }).catch(() => undefined);
     }
@@ -731,6 +752,7 @@ export function App() {
           thread={thread}
           folderLabel={label}
           loading={Boolean(openingMessageId && !selected)}
+          accountId={activeAccountId}
           onBack={closeReader}
           onReply={startReply}
           onForward={startForward}
@@ -774,6 +796,7 @@ export function App() {
         connectingGmail={connectingGmail}
         sessionCount={sessionCount}
         busy={settingsBusy}
+        onMailboxesChanged={() => { void refreshAccounts(); switchAccount(NATIVE_ACCOUNT_ID); }}
         onClose={() => setSettingsOpen(false)}
         onToggleNotifications={() => void toggleNotifications()}
         onConnectGmail={() => void connectGmail()}
