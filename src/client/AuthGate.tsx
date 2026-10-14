@@ -1,153 +1,101 @@
-import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { startRegistration } from "@simplewebauthn/browser";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { AccountSignIn } from "./AccountSignIn";
+import { unlockOwnerPasskey } from "./adminPasskey";
 
-interface AuthStatus {
-  configured: boolean;
-  authenticated: boolean;
-  setupAvailable: boolean;
-}
-
-interface OptionsEnvelope<T> {
-  challengeId: string;
-  options: T;
-}
-
+type AuthStatus = { configured: boolean; authenticated: boolean; setupAvailable: boolean };
+type DeviceStatus = { authenticated: boolean; isAdmin: boolean; accountCount: number };
+type Registration = { challengeId: string; options: Parameters<typeof startRegistration>[0]["optionsJSON"] };
 async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    ...init, cache: "no-store",
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
-
-  const payload = (await response.json().catch(() => ({}))) as { error?: string } & T;
-  if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
-  return payload;
-}
-
-function friendlyAuthError(error: unknown): string {
-  if (error instanceof DOMException && error.name === "NotAllowedError") {
-    return "Passkey sign-in was cancelled or timed out.";
-  }
-  if (error instanceof Error) return error.message;
-  return "Authentication failed. Please try again.";
+  const data = await response.json().catch(() => ({})) as { error?: string } & T;
+  if (!response.ok) throw new Error(data.error || "Authentication failed");
+  return data;
 }
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<AuthStatus | null>(null);
+  const [device, setDevice] = useState<DeviceStatus | null>(null);
+  const [owner, setOwner] = useState<AuthStatus | null>(null);
   const [setupToken, setSetupToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
     try {
-      const next = await apiJson<AuthStatus>("/api/auth/status", { method: "GET" });
-      setStatus(next);
-      setError("");
-    } catch (caught) {
-      setError(friendlyAuthError(caught));
+      const [deviceStatus, ownerStatus] = await Promise.all([
+        apiJson<DeviceStatus>("/api/device/status"),
+        apiJson<AuthStatus>("/api/auth/status"),
+      ]);
+      setDevice(deviceStatus);
+      setOwner(ownerStatus);
+      const oauthError = new URLSearchParams(window.location.search).get("gmail");
+      if (oauthError && oauthError !== "connected") setError(`Google sign-in was not completed: ${oauthError.replace(/_/g, " ")}`);
+      else setError("");
+      if (oauthError) {
+        const next = new URL(window.location.href);
+        next.searchParams.delete("gmail");
+        window.history.replaceState(null, "", next.toString());
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not check device sign-in");
     }
   }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  async function signIn() {
-    setBusy(true);
-    setError("");
-    try {
-      const envelope = await apiJson<OptionsEnvelope<Parameters<typeof startAuthentication>[0]["optionsJSON"]>>(
-        "/api/auth/login/options",
-        { method: "POST", body: "{}" },
-      );
-      const response = await startAuthentication({ optionsJSON: envelope.options });
-      await apiJson<{ ok: true }>("/api/auth/login/verify", {
-        method: "POST",
-        body: JSON.stringify({ challengeId: envelope.challengeId, response }),
-      });
-      await refresh();
-    } catch (caught) {
-      setError(friendlyAuthError(caught));
-    } finally {
-      setBusy(false);
-    }
+  async function adminLogin() {
+    setBusy(true); setError("");
+    try { await unlockOwnerPasskey(); await refresh(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Administrator sign-in failed"); }
+    finally { setBusy(false); }
   }
-
-  async function setUpPasskey() {
-    if (!setupToken.trim()) {
-      setError("Enter the one-time setup secret first.");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
+  async function initialSetup() {
+    if (!setupToken.trim()) { setError("Enter the original setup secret first."); return; }
+    setBusy(true); setError("");
     try {
-      const envelope = await apiJson<OptionsEnvelope<Parameters<typeof startRegistration>[0]["optionsJSON"]>>(
-        "/api/auth/register/options",
-        {
-          method: "POST",
-          body: JSON.stringify({ setupToken }),
-        },
-      );
-      const response = await startRegistration({ optionsJSON: envelope.options });
-      await apiJson<{ ok: true }>("/api/auth/register/verify", {
-        method: "POST",
-        body: JSON.stringify({ challengeId: envelope.challengeId, response, setupToken }),
+      const registration = await apiJson<Registration>("/api/auth/register/options", {
+        method:"POST",body:JSON.stringify({setupToken}),
+      });
+      const response = await startRegistration({optionsJSON:registration.options});
+      await apiJson<{ok:boolean}>("/api/auth/register/verify", {
+        method:"POST",body:JSON.stringify({challengeId:registration.challengeId,response,setupToken}),
       });
       setSetupToken("");
       await refresh();
-    } catch (caught) {
-      setError(friendlyAuthError(caught));
-    } finally {
-      setBusy(false);
-    }
+    } catch(cause) { setError(cause instanceof Error ? cause.message : "Setup failed"); }
+    finally { setBusy(false); }
   }
 
-  if (status?.authenticated) return <>{children}</>;
-
-  return (
-    <main className="auth-shell">
-      <section className="auth-card" aria-live="polite">
-        <img className="auth-logo" src="/apple-touch-icon.png" alt="" width="72" height="72" />
-        <div className="auth-heading">
-          <p className="auth-eyebrow">Private webmail</p>
-          <h1>LTM Mails</h1>
-          <p>Sign in securely to access contact@liamthemo.com.</p>
-        </div>
-
-        {!status ? (
-          <div className="auth-state">Checking session…</div>
-        ) : status.configured ? (
-          <button className="auth-primary" type="button" onClick={() => void signIn()} disabled={busy}>
-            {busy ? "Signing in…" : "Sign in with passkey"}
+  if (device?.authenticated && device.accountCount > 0) return <>{children}</>;
+  return <main className="auth-shell">
+    <section className="auth-card" aria-live="polite">
+      <img className="auth-logo" src="/apple-touch-icon.png" alt="" width="72" height="72" />
+      <div className="auth-heading">
+        <p className="auth-eyebrow">Your mail on this device</p>
+        <h1>LTM Mails</h1>
+        <p>Sign in to Google or a custom email address. Only accounts added on this device appear here.</p>
+      </div>
+      {!device || !owner ? <div className="auth-state">Checking saved sessions…</div> : <>
+        <AccountSignIn onSignedIn={() => void refresh()} />
+        <div className="account-signin-divider"><span>Administration</span></div>
+        {owner.configured ? (
+          <button className="auth-secondary" disabled={busy} type="button" onClick={() => void adminLogin()}>
+            {busy ? "Verifying…" : "Administrator sign-in with passkey"}
           </button>
-        ) : status.setupAvailable ? (
+        ) : owner.setupAvailable ? (
           <div className="auth-setup">
-            <label htmlFor="setup-token">One-time setup secret</label>
-            <input
-              id="setup-token"
-              type="password"
-              autoComplete="off"
-              value={setupToken}
-              onChange={(event) => setSetupToken(event.target.value)}
-              placeholder="Enter setup secret"
-              disabled={busy}
-            />
-            <button className="auth-primary" type="button" onClick={() => void setUpPasskey()} disabled={busy}>
-              {busy ? "Creating passkey…" : "Create my passkey"}
+            <label htmlFor="setup-token">One-time administrator setup secret</label>
+            <input id="setup-token" type="password" value={setupToken} autoComplete="off"
+              onChange={event=>setSetupToken(event.target.value)} />
+            <button className="auth-primary" type="button" disabled={busy} onClick={() => void initialSetup()}>
+              Create administrator passkey
             </button>
-            <p className="auth-note">This setup secret stops anyone else from claiming the mailbox before your first passkey exists.</p>
           </div>
-        ) : (
-          <div className="auth-warning">
-            Passkey setup is locked until the server has an <code>AUTH_SETUP_TOKEN</code> secret.
-          </div>
-        )}
-
-        {error ? <p className="auth-error">{error}</p> : null}
-      </section>
-    </main>
-  );
+        ) : null}
+      </>}
+      {error && <p className="auth-error" role="alert">{error}</p>}
+    </section>
+  </main>;
 }
