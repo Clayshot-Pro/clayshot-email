@@ -1,3 +1,4 @@
+import { mailboxPasswordError } from "./mailboxPasswordPolicy";
 import { isAuthenticated, logout as ownerLogout } from "./auth";
 import { normalizeMailboxAddress } from "./mailboxRules";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
@@ -64,25 +65,33 @@ function equalHash(a: string, b: string): boolean {
   return diff === 0;
 }
 export async function credentialForMailbox(_id: string, password: string): Promise<{ salt: string; hash: string; iterations: number }> {
-  if (password.length < 16 || password.length > 256) throw Error("Invalid password length");
+  const invalid = mailboxPasswordError(password);
+  if (invalid) throw new Error(invalid);
   const salt = token(24);
   return { salt, hash: await derivePassword(password, salt), iterations: PASSWORD_ITERATIONS };
 }
+export async function setMailboxPassword(env: Env, id: string, password: string): Promise<void> {
+  const invalid = mailboxPasswordError(password);
+  if (invalid) throw new Error(invalid);
+  const record = await env.DB.prepare(
+    "SELECT id FROM native_mailboxes WHERE id=?1 AND status='active' AND deleted_at IS NULL"
+  ).bind(id).first();
+  if (!record) throw new Error("Mailbox unavailable");
+  const value = await credentialForMailbox(id,password);
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO native_mailbox_credentials (mailbox_id,password_salt,password_hash,iterations)
+      VALUES (?1,?2,?3,?4) ON CONFLICT(mailbox_id) DO UPDATE SET
+      password_salt=excluded.password_salt,password_hash=excluded.password_hash,
+      iterations=excluded.iterations,updated_at=CURRENT_TIMESTAMP`)
+      .bind(id,value.salt,value.hash,value.iterations),
+    env.DB.prepare("DELETE FROM device_session_accounts WHERE account_id=?1 AND provider='native'").bind(id),
+  ]);
+}
 export async function rotateMailboxPassword(env: Env, id: string): Promise<string> {
-  const password = token(32);
-  const value = await credentialForMailbox(id, password);
-  const row = await env.DB.prepare("SELECT 1 FROM native_mailboxes WHERE id=?1 AND status='active'")
-    .bind(id).first();
-  if (!row) throw Error("Mailbox not active");
-  await env.DB.prepare(`INSERT INTO native_mailbox_credentials (mailbox_id,password_salt,password_hash,iterations)
-    VALUES (?1,?2,?3,?4) ON CONFLICT(mailbox_id) DO UPDATE SET
-    password_salt=excluded.password_salt,password_hash=excluded.password_hash,
-    iterations=excluded.iterations,updated_at=CURRENT_TIMESTAMP`)
-    .bind(id,value.salt,value.hash,value.iterations).run();
-  // Resetting an account's password invalidates its sessions across devices.
-  await env.DB.prepare("DELETE FROM device_session_accounts WHERE account_id=?1 AND provider='native'")
-    .bind(id).run();
-  return password; // only ever exposed once to the authorized admin.
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const password = b64url(bytes);
+  await setMailboxPassword(env,id,password);
+  return password; // only displayed once to the verified owner.
 }
 async function checkNativePassword(env: Env, address: string, password: string): Promise<string | null> {
   const normalized = normalizeMailboxAddress(address);
@@ -127,7 +136,7 @@ export async function deviceAccountIds(request: Request, env: Env): Promise<stri
     LEFT JOIN native_mailboxes n ON g.provider='native' AND n.id=g.account_id
     LEFT JOIN connected_accounts a ON g.provider='gmail' AND a.id=g.account_id
     WHERE g.session_id=?1 AND (
-      (g.provider='native' AND n.status='active' AND n.deleted_at IS NULL) OR
+      (g.provider='native' AND n.status='active' AND n.deleted_at IS NULL AND n.email_address!='admin@liamthemo.com') OR
       (g.provider='gmail' AND a.status IN ('active','reauth_required'))
     )`).bind(session.id).all<{account_id:string}>();
   return items.results.map(i => i.account_id);
@@ -143,7 +152,7 @@ export async function deviceLogin(request: Request, env: Env): Promise<Response>
   const input = await request.json<{ email?: unknown; password?: unknown }>().catch(() => null);
   const email = typeof input?.email === "string" ? input.email : "";
   const password = typeof input?.password === "string" ? input.password : "";
-  if (!email || password.length > 256) return jsonError("Invalid credentials", 401);
+  if (!email || email.trim().toLowerCase() === "admin@liamthemo.com" || password.length > 128) return jsonError("Invalid credentials", 401);
   if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "native-login")))) {
     return jsonError("Too many attempts. Try again later.", 429);
   }
