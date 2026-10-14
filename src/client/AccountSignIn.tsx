@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { unlockOwnerPasskey } from "./adminPasskey";
 
 export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: () => void; showGoogle?: boolean }) {
   const [email, setEmail] = useState("");
@@ -23,13 +24,19 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
     event.preventDefault();
     setPending("custom"); setError("");
     try {
-      const response = await fetch("/api/device/login", {
+      const isAdmin = email.trim().toLowerCase() === "admin@liamthemo.com";
+      const response = await fetch(isAdmin ? "/api/admin/login/password" : "/api/device/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const result = await response.json() as {error?:string};
-      if (!response.ok) throw new Error(result.error || "Custom mailbox sign-in failed");
+      const result = await response.json() as {error?:string;passkeyRequired?:boolean};
+      if (!response.ok) throw new Error(result.error || "Email sign-in failed");
       setPassword("");
+      if (isAdmin) {
+        if (!result.passkeyRequired) throw new Error("Administrator passkey verification required");
+        // A separate, server-bound passkey challenge completes the second factor.
+        await unlockOwnerPasskey();
+      }
       onSignedIn();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Custom mailbox sign-in failed");
@@ -43,12 +50,12 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
     <form className="auth-setup" onSubmit={(event) => void addCustom(event)}>
       <label htmlFor="device-email">Email address</label>
       <input id="device-email" type="email" value={email} onChange={event => setEmail(event.target.value)}
-        placeholder="personal@liamthemo.com" autoComplete="username" required maxLength={254} />
+        placeholder="personal@liamthemo.com or admin@liamthemo.com" autoComplete="username" required maxLength={254} />
       <label htmlFor="device-password">Mailbox password</label>
       <input id="device-password" type="password" value={password} onChange={event => setPassword(event.target.value)}
         autoComplete="current-password" minLength={16} required />
       <button className="auth-primary" type="submit" disabled={pending !== null}>
-        {pending === "custom" ? "Signing in…" : "Sign in to custom email"}
+        {pending === "custom" ? "Verifying sign-in…" : "Sign in"}
       </button>
     </form>
     {error && <p className="auth-error" role="alert">{error}</p>}
