@@ -1,3 +1,4 @@
+import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
 import { previewAttachment } from "./api/attachments";
@@ -131,6 +132,18 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   // Mail and profile routes.
   if (url.pathname === "/api/health" && request.method === "GET") return healthResponse(env);
   if (url.pathname === "/api/accounts" && request.method === "GET") return getConnectedAccounts(env);
+  if (url.pathname === "/api/mailboxes" && request.method === "GET") {
+    return Response.json({ mailboxes: await allNativeMailboxes(env) });
+  }
+  if (url.pathname === "/api/mailboxes" && request.method === "POST") {
+    return createNativeMailbox(request, env);
+  }
+  const mailboxRoute = url.pathname.match(/^\\/api\\/mailboxes\\/([^/]+)$/);
+  if (mailboxRoute && request.method === "PATCH") {
+    const id = decodedRouteId(mailboxRoute);
+    if (!id) return jsonError("Invalid mailbox ID", 400);
+    return updateNativeMailbox(request, env, id);
+  }
   if (url.pathname === "/api/messages" && request.method === "GET") return listMessages(request, env);
   if (url.pathname === "/api/send" && request.method === "POST") return sendEmail(request, env);
   if (url.pathname === "/api/drafts" && request.method === "POST") return saveDraft(request, env);
@@ -152,8 +165,8 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   if (draftMatch) {
     const id = decodedRouteId(draftMatch);
     if (!id) return jsonError("Invalid draft id", 400);
-    if (request.method === "GET") return getDraft(id, env);
-    if (request.method === "DELETE") return deleteDraft(id, env);
+    if (request.method === "GET") return getDraft(id, env, url.searchParams.get("accountId"));
+    if (request.method === "DELETE") return deleteDraft(id, env, url.searchParams.get("accountId"));
     return jsonError("Method not allowed", 405);
   }
 
