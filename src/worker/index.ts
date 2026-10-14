@@ -1,5 +1,5 @@
 import { reconcileMailboxUsage } from "./usage";
-import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox } from "./mailboxes";
+import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox, purgeExpiredNativeMailboxes } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
 import { previewAttachment } from "./api/attachments";
@@ -225,5 +225,11 @@ export default {
 
   async email(message, env, ctx): Promise<void> {
     await receiveEmail(message, env, ctx);
+  },
+
+  async scheduled(_event, env, ctx): Promise<void> {
+    if (env.MAILBOX_PURGE_ENABLED === "true") {
+      ctx.waitUntil(purgeExpiredNativeMailboxes(env));
+    }
   },
 } satisfies ExportedHandler<Env>;
