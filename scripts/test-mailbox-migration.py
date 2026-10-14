@@ -105,3 +105,46 @@ denied = db.execute(
 assert denied.rowcount == 0
 assert db.execute("SELECT used_bytes FROM native_mailboxes WHERE id=?", (box,)).fetchone()[0] == 7
 print("PASS: conditional atomic quota reservation")
+
+# v2.00 operational schema: deletion, audit, idempotency and reconciliation.
+assert "deleted_at" in [x[1] for x in db.execute("PRAGMA table_info(native_mailboxes)")]
+assert "usage_version" in [x[1] for x in db.execute("PRAGMA table_info(native_mailboxes)")]
+db.execute(
+    "INSERT INTO outbound_attempts(mailbox_id,client_key,message_id,state) VALUES(?,?,?,?)",
+    (box, "draft-unique-1234", "sent-local", "pending"),
+)
+duplicate = db.execute(
+    "INSERT OR IGNORE INTO outbound_attempts(mailbox_id,client_key,message_id,state) VALUES(?,?,?,?)",
+    (box, "draft-unique-1234", "not-sent-twice", "pending"),
+)
+assert duplicate.rowcount == 0
+db.execute("UPDATE outbound_attempts SET state='accepted' WHERE mailbox_id=?", (box,))
+assert db.execute(
+    "SELECT state,message_id FROM outbound_attempts WHERE mailbox_id=?", (box,)
+).fetchone() == ("accepted", "sent-local")
+
+db.execute(
+    "INSERT INTO mailbox_usage_rebuild(mailbox_id,usage_version,cursor) VALUES (?,?,?)",
+    (box, 0, ""),
+)
+result = db.execute(
+    "UPDATE mailbox_usage_rebuild SET cursor=? WHERE mailbox_id=? AND cursor=? AND usage_version=?",
+    ("message-example", box, "", 0),
+)
+assert result.rowcount == 1
+db.execute("UPDATE native_mailboxes SET usage_version=usage_version+1 WHERE id=?", (box,))
+assert db.execute(
+    "SELECT usage_version FROM native_mailboxes WHERE id=?", (box,)
+).fetchone()[0] == 1
+
+db.execute(
+    "UPDATE native_mailboxes SET status='disabled',deleted_at=datetime('now'),purge_after=datetime('now','+30 days') WHERE id=?",
+    (box,),
+)
+assert db.execute(
+    "SELECT COUNT(*) FROM native_mailboxes WHERE id=? AND status='active'", (box,)
+).fetchone()[0] == 0
+assert db.execute(
+    "SELECT COUNT(*) FROM native_mailboxes WHERE id=? AND purge_after>CURRENT_TIMESTAMP", (box,)
+).fetchone()[0] == 1
+print("PASS: staged deletion, idempotent sends, and R2 usage reconciliation schema")
