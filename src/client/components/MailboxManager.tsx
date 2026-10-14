@@ -7,97 +7,167 @@ type Mailbox = {
   status: "active" | "disabled";
   quota_bytes: number;
   used_bytes: number;
+  deleted_at: string | null;
+  purge_after: string | null;
+  spam_filter_enabled: number;
 };
+
+async function api(path: string, method = "GET", body?: unknown): Promise<Record<string, unknown>> {
+  const response = await fetch(path, {
+    method,
+    cache: "no-store",
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const result = await response.json() as Record<string, unknown>;
+  if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "Mailbox operation failed");
+  return result;
+}
 
 export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [address, setAddress] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [quotaGB, setQuotaGB] = useState("5");
+  const [spamEnabled, setSpamEnabled] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/mailboxes", { cache: "no-store" });
-      if (!res.ok) throw new Error("Unable to load native mailboxes");
-      const data = await res.json() as { mailboxes: Mailbox[] };
-      setMailboxes(data.mailboxes);
-    } catch {
-      setNotice("Could not load mailboxes. Try reopening Settings.");
+      const data = await api("/api/mailboxes");
+      setMailboxes(data.mailboxes as Mailbox[]);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not load mailboxes");
     }
   }, []);
-
   useEffect(() => { void load(); }, [load]);
+
+  async function run(id: string, action: () => Promise<unknown>, success: string) {
+    setBusy(id); setNotice(null);
+    try {
+      await action();
+      await load();
+      onChanged();
+      setNotice(success);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Mailbox operation failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function edit(box: Mailbox) {
+    setEditing(box.id);
+    setEditName(box.display_name);
+    setQuotaGB(String(box.quota_bytes / 1073741824));
+    setSpamEnabled(box.spam_filter_enabled === 1);
+  }
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true); setNotice(null);
-    try {
-      const res = await fetch("/api/mailboxes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, displayName }),
-      });
-      const result = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(result.error ?? "Unable to create mailbox");
+    await run("new", async () => {
+      await api("/api/mailboxes", "POST", { address, displayName });
       setAddress(""); setDisplayName("");
-      setNotice("Mailbox created. Receiving requires the domain catch-all Email Worker route.");
-      await load(); onChanged();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to create mailbox");
-    } finally { setBusy(false); }
+    }, "Mailbox created. Cloudflare catch-all routing must be configured for new addresses to receive mail.");
   }
 
-  async function toggle(box: Mailbox) {
-    setBusy(true); setNotice(null);
-    try {
-      const res = await fetch(`/api/mailboxes/${encodeURIComponent(box.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: box.status === "active" ? "disabled" : "active" }),
+  async function change(box: Mailbox, status: "active" | "disabled") {
+    await run(box.id, () => api(`/api/mailboxes/${encodeURIComponent(box.id)}`, "PATCH", { status }), `Mailbox ${status}.`);
+  }
+
+  async function remove(box: Mailbox) {
+    if (!window.confirm(`Schedule deletion of ${box.email_address}? New messages will be rejected. You can restore it within 30 days. No messages will be erased immediately.`)) return;
+    await run(box.id, () => api(`/api/mailboxes/${encodeURIComponent(box.id)}`, "DELETE"), "Mailbox disabled and scheduled for deletion. Recovery is available for 30 days.");
+  }
+
+  async function restore(box: Mailbox) {
+    await run(box.id, () => api(`/api/mailboxes/${encodeURIComponent(box.id)}/restore`, "POST"), "Mailbox restored.");
+  }
+
+  async function purge(box: Mailbox) {
+    if (!window.confirm(`Permanently erase ${box.email_address} and its stored emails and attachments? This cannot be undone. Verify your backup first.`)) return;
+    await run(box.id, async () => {
+      for (let batch = 0; batch < 300; batch++) {
+        const result = await api(`/api/mailboxes/${encodeURIComponent(box.id)}/purge`, "POST");
+        if (result.complete === true) return;
+      }
+      throw new Error("Purging is incomplete; repeat the operation to continue safely.");
+    }, "Mailbox and stored content permanently deleted.");
+  }
+
+  async function save(box: Mailbox) {
+    const value = Number(quotaGB);
+    if (!Number.isFinite(value) || value < 0.01 || value > 10) {
+      setNotice("Select a quota between 0.01 and 10 GB."); return;
+    }
+    await run(box.id, async () => {
+      await api(`/api/mailboxes/${encodeURIComponent(box.id)}`, "PATCH", {
+        displayName: editName, quotaBytes: Math.round(value * 1073741824), spamFilterEnabled: spamEnabled,
       });
-      const result = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(result.error ?? "Unable to update mailbox");
-      await load(); onChanged();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Unable to update mailbox");
-    } finally { setBusy(false); }
+      setEditing(null);
+    }, "Mailbox settings saved.");
   }
 
   return (
     <section className="settings-section" aria-label="Native mailbox management">
       <h3>Custom mailboxes</h3>
-      <p>Create native addresses under liamthemo.com. All are managed by your existing passkey session, not separate passwords or IMAP accounts. New addresses are receive-only until outbound eligibility is confirmed.</p>
+      <p>Create webmail addresses under liamthemo.com. These share your existing passkey sign-in. Sending from new addresses is disabled until Cloudflare authorizes and enables it.</p>
       <div className="settings-accounts">
-        {mailboxes.map((box) => (
-          <div className="settings-account" key={box.id}>
-            <span className="settings-avatar-fallback">{box.email_address[0]?.toUpperCase()}</span>
-            <div>
-              <strong>{box.email_address}</strong>
-              <small>{box.status === "active" ? "Active" : "Disabled"}{box.display_name ? ` · ${box.display_name}` : ""} · ~{Math.round(box.used_bytes / 1048576)} MB / {Math.round(box.quota_bytes / 1073741824)} GB</small>
+        {mailboxes.map(box => {
+          const expired = Boolean(box.purge_after && Date.parse(box.purge_after.replace(" ", "T") + "Z") <= Date.now());
+          const isPrimary = box.id === "native:primary";
+          return (
+            <div className="settings-account" key={box.id} style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+              <span className="settings-avatar-fallback">{box.email_address.charAt(0).toUpperCase()}</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <strong>{box.email_address}</strong>
+                <small>{box.deleted_at ? "Pending deletion" : box.status === "active" ? "Active" : "Disabled"}
+                  {" · "}{(box.used_bytes / 1048576).toFixed(1)} MB counted / {(box.quota_bytes / 1073741824).toFixed(2)} GB
+                </small>
+                {editing === box.id ? (
+                  <div style={{ display: "grid", gap: 7, marginTop: 10 }}>
+                    <label>Display name <input value={editName} maxLength={80} onChange={e => setEditName(e.target.value)} /></label>
+                    <label>Quota in GB <input type="number" min="0.01" max="10" step="0.01" value={quotaGB} onChange={e => setQuotaGB(e.target.value)} /></label>
+                    <label><input type="checkbox" checked={spamEnabled} onChange={e => setSpamEnabled(e.target.checked)} /> Move high-confidence suspected spam to Junk (experimental)</label>
+                    <div className="settings-row-actions">
+                      <button type="button" disabled={busy !== null} onClick={() => void save(box)}>Save</button>
+                      <button type="button" disabled={busy !== null} onClick={() => setEditing(null)}>Cancel</button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="settings-row-actions" style={{ flexWrap: "wrap" }}>
+                {!box.deleted_at && editing !== box.id && <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit</button>}
+                {!isPrimary && !box.deleted_at && (
+                  <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
+                    {box.status === "active" ? "Disable" : "Enable"}
+                  </button>
+                )}
+                {!isPrimary && !box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void remove(box)}>Delete</button>}
+                {box.deleted_at && !expired && <button type="button" disabled={busy !== null} onClick={() => void restore(box)}>Restore</button>}
+                {box.deleted_at && expired && <button type="button" disabled={busy !== null} onClick={() => void purge(box)}>Erase permanently</button>}
+              </div>
             </div>
-            {box.id !== "native:primary" ? (
-              <button type="button" disabled={busy} onClick={() => void toggle(box)}>
-                {box.status === "active" ? "Disable" : "Enable"}
-              </button>
-            ) : <span className="settings-locked">Primary</span>}
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <form onSubmit={(event) => void create(event)} style={{ display: "grid", gap: 8, marginTop: 12 }}>
+      <form onSubmit={e => void create(e)} style={{ display: "grid", gap: 8, marginTop: 12 }}>
         <label htmlFor="new-mailbox-address">New mailbox address</label>
-        <input id="new-mailbox-address" type="text" autoComplete="off" spellCheck={false}
-          placeholder="personal@liamthemo.com" value={address} onChange={(event) => setAddress(event.target.value)}
-          required maxLength={254} style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
+        <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
+          placeholder="personal@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
+          required style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
         <label htmlFor="new-mailbox-name">Display name (optional)</label>
-        <input id="new-mailbox-name" type="text" autoComplete="off" placeholder="Personal"
-          value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={80}
-          style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
-        <button className="settings-primary" disabled={busy || !address.trim()} type="submit">
-          {busy ? "Saving…" : "Create mailbox"}
+        <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
+          placeholder="Personal" style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
+        <button className="settings-primary" type="submit" disabled={busy !== null || !address.trim()}>
+          {busy === "new" ? "Creating…" : "Create mailbox"}
         </button>
-        {notice && <small role="status">{notice}</small>}
       </form>
+      {notice ? <p role="status">{notice}</p> : null}
+      <p>Deletion uses a 30-day recovery period. Storage usage of migrated older messages may need reconciliation against Cloudflare R2.</p>
     </section>
   );
 }
