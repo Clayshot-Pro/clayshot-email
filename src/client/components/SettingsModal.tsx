@@ -90,7 +90,7 @@ export function SettingsModal(props: Props) {
                     >
                       Edit profile
                     </button>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>
