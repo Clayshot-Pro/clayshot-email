@@ -33,6 +33,9 @@ assert db.execute(
     "SELECT mailbox_id FROM drafts WHERE id='draft-original'"
 ).fetchone() == ("native:primary",)
 assert db.execute(
+    "SELECT used_bytes FROM native_mailboxes WHERE id='native:primary'"
+).fetchone()[0] > 0
+assert db.execute(
     "SELECT mailbox_id FROM threads WHERE id='thread-original'"
 ).fetchone() == ("native:primary",)
 
@@ -86,3 +89,19 @@ else:
     raise AssertionError("Duplicate deliveries to the same mailbox must be rejected")
 
 print("PASS: legacy mailbox backfill, independent delivery, deduplication and uniqueness")
+
+db.execute("UPDATE native_mailboxes SET quota_bytes=10 WHERE id=?", (box,))
+allowed = db.execute(
+    """UPDATE native_mailboxes SET used_bytes=used_bytes+?
+       WHERE id=? AND status='active' AND used_bytes+? <= quota_bytes""",
+    (7, box, 7),
+)
+assert allowed.rowcount == 1
+denied = db.execute(
+    """UPDATE native_mailboxes SET used_bytes=used_bytes+?
+       WHERE id=? AND status='active' AND used_bytes+? <= quota_bytes""",
+    (7, box, 7),
+)
+assert denied.rowcount == 0
+assert db.execute("SELECT used_bytes FROM native_mailboxes WHERE id=?", (box,)).fetchone()[0] == 7
+print("PASS: conditional atomic quota reservation")
