@@ -26,6 +26,7 @@ async function api(path: string, method = "GET", body?: unknown): Promise<Record
 
 export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [address, setAddress] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
     try {
       const data = await api("/api/mailboxes");
       setMailboxes(data.mailboxes as Mailbox[]);
+      setLoaded(true);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not load mailboxes");
     }
@@ -165,20 +167,78 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   }
 
   return (
-    <section className="settings-section" aria-label="Native mailbox management">
-      <h3>Custom mailboxes</h3>
-      <p>Create webmail addresses under liamthemo.com. These share your existing passkey sign-in. Sending from new addresses is disabled until Cloudflare authorizes and enables it.</p>
+    <section className="settings-section admin-mailbox-panel" id="admin-mailboxes" aria-label="Native mailbox management">
+      <div className="admin-section-heading">
+        <div>
+          <p className="admin-section-kicker">Domain management</p>
+          <h2>Mailboxes</h2>
+          <p>Create and manage addresses on liamthemo.com. Each mailbox has its own login and storage.</p>
+        </div>
+        <span className="admin-mailbox-count">{loaded ? `${mailboxes.length} total` : "Loading…"}</span>
+      </div>
+
+      {loaded && (
+        <div className="admin-mailbox-stats" aria-label="Mailbox overview">
+          <div><strong>{mailboxes.filter(box => box.status === "active" && !box.deleted_at).length}</strong><span>Active</span></div>
+          <div><strong>{mailboxes.filter(box => box.status === "disabled" || box.deleted_at).length}</strong><span>Inactive</span></div>
+          <div><strong>{(mailboxes.reduce((sum, box) => sum + box.used_bytes, 0) / 1048576).toFixed(1)} MB</strong><span>Counted storage</span></div>
+        </div>
+      )}
+
+      <div className="admin-mailbox-create">
+        <div className="admin-subsection-heading">
+          <h3>Create an address</h3>
+          <p>A secure password will be generated for the new mailbox.</p>
+        </div>
+      <form className="mailbox-create-form" onSubmit={e => void create(e)}>
+        <label htmlFor="new-mailbox-address">New mailbox address</label>
+        <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
+          placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
+          required className="mailbox-entry-input" />
+        <label htmlFor="new-mailbox-name">Display name (optional)</label>
+        <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
+          placeholder="Personal" className="mailbox-entry-input" />
+        <button className="settings-primary" type="submit" disabled={busy !== null || !address.trim()}>
+          {busy === "new" ? "Creating…" : "Create mailbox"}
+        </button>
+      </form>
+      {newCredential && <div className="mailbox-generated-password" role="status">
+        <strong>One-time login for {newCredential.address}</strong>
+        <p>Copy this password now. It is not stored in readable form and will disappear when this panel closes.</p>
+        <code>{newCredential.password}</code>
+        <div className="settings-row-actions">
+          <button type="button" onClick={() => void navigator.clipboard.writeText(newCredential.password)}>Copy password</button>
+          <button type="button" onClick={() => setNewCredential(null)}>Hide password</button>
+        </div>
+      </div>}
+      </div>
+
+      {notice ? <p className="admin-mailbox-notice" role="status">{notice}</p> : null}
+
+      <div className="admin-mailbox-list">
+        <div className="admin-subsection-heading admin-mailbox-list-heading">
+          <h3>Existing addresses</h3>
+          <span>{loaded ? `${mailboxes.length} registered` : "Loading…"}</span>
+        </div>
+        {loaded && mailboxes.length === 0 ? (
+          <p className="admin-mailbox-empty">No mailboxes found.</p>
+        ) : null}
       <div className="settings-accounts">
         {mailboxes.map(box => {
           const expired = Boolean(box.purge_after && Date.parse(box.purge_after.replace(" ", "T") + "Z") <= Date.now());
           const isPrimary = box.id === "native:primary";
           return (
-            <div className="settings-account" key={box.id} style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+            <div className="settings-account admin-mailbox-item" key={box.id}>
               <span className="settings-avatar-fallback">{box.email_address.charAt(0).toUpperCase()}</span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <strong>{box.email_address}</strong>
-                <small>{box.deleted_at ? "Pending deletion" : box.status === "active" ? "Active" : "Disabled"}
-                  {" · "}{(box.used_bytes / 1048576).toFixed(1)} MB counted / {(box.quota_bytes / 1073741824).toFixed(2)} GB
+                <div className="admin-mailbox-name-row">
+                  <strong>{box.email_address}</strong>
+                  <span className={`admin-mailbox-status ${box.deleted_at ? "is-pending" : box.status === "active" ? "is-active" : "is-disabled"}`}>
+                    {box.deleted_at ? "Pending deletion" : box.status === "active" ? "Active" : "Disabled"}
+                  </span>
+                </div>
+                <small className="admin-mailbox-storage">
+                  {(box.used_bytes / 1048576).toFixed(1)} MB counted · {(box.quota_bytes / 1073741824).toFixed(2)} GB limit
                 </small>
                 {passwordFor===box.id && !box.deleted_at ? (
                   <form className="mailbox-password-form" onSubmit={event => {
@@ -233,29 +293,8 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
           );
         })}
       </div>
-      <form className="mailbox-create-form" onSubmit={e => void create(e)}>
-        <label htmlFor="new-mailbox-address">New mailbox address</label>
-        <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
-          placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
-          required className="mailbox-entry-input" />
-        <label htmlFor="new-mailbox-name">Display name (optional)</label>
-        <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
-          placeholder="Personal" className="mailbox-entry-input" />
-        <button className="settings-primary" type="submit" disabled={busy !== null || !address.trim()}>
-          {busy === "new" ? "Creating…" : "Create mailbox"}
-        </button>
-      </form>
-      {newCredential && <div className="mailbox-generated-password" role="status">
-        <strong>One-time login for {newCredential.address}</strong>
-        <p>Copy this password now. It is not stored in readable form and will disappear when this panel closes.</p>
-        <code>{newCredential.password}</code>
-        <div className="settings-row-actions">
-          <button type="button" onClick={() => void navigator.clipboard.writeText(newCredential.password)}>Copy password</button>
-          <button type="button" onClick={() => setNewCredential(null)}>Hide password</button>
-        </div>
-      </div>}
-      {notice ? <p role="status">{notice}</p> : null}
-      <p>Deletion uses a 30-day recovery period. Storage usage of migrated older messages may need reconciliation against Cloudflare R2.</p>
+      </div>
+      <p className="admin-mailbox-footnote">Deleted mailboxes are recoverable for 30 days. Storage totals can be reconciled with Cloudflare R2.</p>
     </section>
   );
 }
