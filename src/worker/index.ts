@@ -13,6 +13,7 @@ import { getContactAvatar } from "./api/contactAvatar";
 import { deleteDraft, getDraft, saveDraft } from "./api/drafts";
 import { healthResponse } from "./api/health";
 import { downloadAttachment, getMessage, listMessages, patchMessage } from "./api/mail";
+import { bulkMailAction, permanentlyDeleteMessage } from "./api/mailActions";
 import { deleteProfilePhoto, getProfile, getProfilePhoto, saveProfilePhoto } from "./api/profile";
 import {
   authenticationOptions,
@@ -290,12 +291,15 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     return jsonError("Method not allowed", 405);
   }
 
+  if (url.pathname === "/api/messages/bulk" && request.method === "POST") return bulkMailAction(request, env);
+
   const messageMatch = url.pathname.match(/^\/api\/messages\/([^/]+)$/);
   if (messageMatch) {
     const id = decodedRouteId(messageMatch);
     if (!id) return jsonError("Invalid message id", 400);
     if (request.method === "GET") return getMessage(request, id, env);
     if (request.method === "PATCH") return patchMessage(request, id, env);
+    if (request.method === "DELETE") return permanentlyDeleteMessage(env, url.searchParams.get("accountId") ?? "", id);
     return jsonError("Method not allowed", 405);
   }
 
