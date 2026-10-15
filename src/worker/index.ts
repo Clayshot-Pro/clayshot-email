@@ -125,10 +125,18 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "admin-change-password"))))
       return jsonError("Too many attempts", 429);
     const payload = await request.json().catch(() => null) as { newPassword?:unknown;currentPassword?:unknown } | null;
-    const outcome = await saveAdminPassword(env,payload?.newPassword,payload?.currentPassword);
-    if (outcome.error) return jsonError(outcome.error, 400);
-    const response = await logout(request, env);
-    return Response.json({ok:true,reloginRequired:true},{headers: response.headers});
+    try {
+      const outcome = await saveAdminPassword(env,payload?.newPassword,payload?.currentPassword);
+      if (outcome.error) return jsonError(outcome.error, 400);
+      const response = await logout(request, env);
+      return Response.json({ok:true,reloginRequired:true},{headers: response.headers});
+    } catch (error) {
+      // Never log submitted passwords or D1 parameter values. Return JSON even
+      // when storage or password hashing fails so mobile browsers get an
+      // actionable message rather than an opaque DOM/SyntaxError.
+      console.error("Administrator password save failed", error instanceof Error ? error.name : "unknown");
+      return jsonError("Unable to save administrator password. Check the Cloudflare D1 migration and Worker logs.", 503);
+    }
   }
   if (url.pathname === "/api/admin/status" && request.method === "GET") {
     return Response.json({passwordConfigured:await adminPasswordConfigured(env)});

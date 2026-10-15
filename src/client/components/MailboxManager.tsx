@@ -236,7 +236,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
       <form onSubmit={e => void create(e)} style={{ display: "grid", gap: 8, marginTop: 12 }}>
         <label htmlFor="new-mailbox-address">New mailbox address</label>
         <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
-          placeholder="personal@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
+          placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
           required style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
         <label htmlFor="new-mailbox-name">Display name (optional)</label>
         <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
