@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { normalizeMailboxAddress } from "../src/worker/mailboxRules.ts";
 import { suspectedJunk } from "../src/worker/email/junk.ts";
-import { mailboxPasswordError } from "../src/worker/mailboxPasswordPolicy.ts";
+import { adminPasswordError, mailboxPasswordError } from "../src/worker/mailboxPasswordPolicy.ts";
 
 assert.equal(normalizeMailboxAddress(" Personal@LIAMTHEMO.COM "), "personal@liamthemo.com");
 assert.equal(normalizeMailboxAddress("work"), "work@liamthemo.com");
@@ -22,3 +22,4 @@ assert.match(mailboxPasswordError("short")??"",/at least 16/);
 assert.match(mailboxPasswordError("z".repeat(20))??"",/repetitive/);
 assert.match(mailboxPasswordError("password-with-newline"+String.fromCharCode(10)+"2026")??"",/control/);
 console.log("PASS: admin login address reserved and custom password policy validated");
+\nassert.equal(adminPasswordError("Abcd?789"),null);\nassert.match(adminPasswordError("short")??"",/at least 8/);\nassert.match(adminPasswordError("X".repeat(33))??"",/at most 32/);\n
