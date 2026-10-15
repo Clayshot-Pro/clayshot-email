@@ -1,6 +1,7 @@
 import { primaryProfilePath, protectedAccountPath, requestedMailAccount } from "./accountAccess";
 import { adminProtectedApiPath } from "./adminRoutePolicy";
-import { adminMutationNeedsStepUp, consumeAdminApproval, isApprovedAdminMutation, stepUpOptions, stepUpVerify } from "./adminStepUp";
+import { consumeAdminApproval, stepUpOptions, stepUpVerify } from "./adminStepUp";
+import { adminMutationNeedsStepUp, isApprovedAdminMutation } from "./adminStepUpPolicy";
 import { adminMutationEvent, listAdminSecurityEvents, pruneAdminSecurityEvents, tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
 import { readOwnerSessionToken } from "./ownerSessionPolicy";
 import { beginAdminLogin, adminPasswordConfigured, saveAdminPassword } from "./adminAuth";
