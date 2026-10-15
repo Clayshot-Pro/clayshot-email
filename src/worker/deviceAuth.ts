@@ -1,4 +1,5 @@
 import { mailboxPasswordError } from "./mailboxPasswordPolicy";
+import { hashPassword } from "./passwordCrypto";
 import { isAuthenticated, logout as ownerLogout } from "./auth";
 import { normalizeMailboxAddress } from "./mailboxRules";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
@@ -52,11 +53,9 @@ export async function oauthNonceMatches(request: Request, hash: string | null): 
 }
 
 async function derivePassword(password: string, salt: string, iterations = PASSWORD_ITERATIONS): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", utf8.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const digest = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: unbase64url(salt), iterations }, key, 256
-  );
-  return b64url(new Uint8Array(digest));
+  // Keep native mailbox passwords compatible with existing PBKDF2-SHA256 hashes.
+  // Use Worker-supported node:crypto rather than production-capped WebCrypto.
+  return hashPassword(password, salt, iterations);
 }
 function equalHash(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
