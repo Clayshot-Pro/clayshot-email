@@ -1,5 +1,20 @@
 export type AdminSecurityOutcome = "success" | "denied" | "failure";
 
+export function adminMutationEvent(method: string, path: string): string {
+  if (path === "/api/admin/password") return "admin.password.changed";
+  if (path === "/api/mailboxes") return "admin.mailbox.created";
+  if (path === "/api/auth/sessions/reset") return "admin.sessions.reset";
+  if (path.startsWith("/api/auth/sessions/")) return "admin.session.revoked";
+  if (path.endsWith("/reset-password")) return "admin.mailbox.password_reset";
+  if (path.endsWith("/reconcile")) return "admin.mailbox.reconciled";
+  if (path.endsWith("/restore")) return "admin.mailbox.restored";
+  if (path.endsWith("/purge")) return "admin.mailbox.purged";
+  if (method === "DELETE") return "admin.mailbox.deletion_scheduled";
+  return "admin.mailbox.updated";
+}
+
+
+
 const SAFE_EVENT = /^[a-z][a-z0-9_.-]{0,79}$/;
 const MAX_AGE_DAYS = 90;
 
