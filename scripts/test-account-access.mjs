@@ -5,14 +5,14 @@ const destination = "https://email.liamthemo.com";
 const allowed = "native:allowed";
 const forbidden = "native:unrelated";
 
-function sent(accountId: string, query?: string) {
+function sent(accountId, query) {
   const form = new FormData();
   form.set("accountId", accountId);
   form.set("to", "person@example.com");
   const url = new URL("/api/send" + (query ? "?accountId=" + encodeURIComponent(query) : ""), destination);
   return { request: new Request(url, { method:"POST", body: form }), url };
 }
-function draft(accountId: string, query?: string) {
+function draft(accountId, query) {
   const url = new URL("/api/drafts" + (query ? "?accountId=" + encodeURIComponent(query) : ""), destination);
   return { request: new Request(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ accountId }) }),url };
 }
