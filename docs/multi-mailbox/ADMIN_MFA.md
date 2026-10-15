@@ -17,7 +17,7 @@ Once the password is saved, all existing passkey-only administrator sessions are
 
 ## Changing passwords
 
-- **Administrator password:** In the admin dashboard choose **Change administrator password**. Supply the current administrator password, new password, and confirmation. The change revokes *all* administrator sessions; log in again with password + passkey. The registered passkey is not changed.
+- **Administrator password:** In the admin dashboard choose **Change administrator password**. Supply the current administrator password, new password (8–32 characters), and confirmation. The change revokes *all* administrator sessions; log in again with password + passkey. The registered passkey is not changed.
 - **Individual mailbox password:** In **Custom mailboxes**, select **Set password** for the desired address, provide and confirm a strong password. The password is salted and hashed on the server; the server returns no plaintext. The existing mailbox device sessions are revoked without affecting other email accounts.
 - **Generated mailbox password:** Choose **Generate password** to replace a mailbox password with a random strong value. That random password is returned once to the passkey-authenticated admin screen. Store it securely; it cannot be retrieved later.
 
@@ -44,3 +44,11 @@ Once the password is saved, all existing passkey-only administrator sessions are
 ## Recovery warning
 
 There is no automatic administrator password recovery or passkey bypass. Save the administrator password in a trusted password manager and retain access to the existing registered passkey. A lockout requires a separate owner-controlled recovery process, not a public reset link.
+
+## v2.04 fix: Cloudflare runtime-compatible hashing
+
+Administrator passwords accept **8–32 characters** (the custom mailbox password policy remains 16–128). Punctuation, including `?`, is supported. This release replaces the WebCrypto PBKDF2 call with Workers-supported `node:crypto` PBKDF2, retaining the 310,000-iteration work factor and compatibility with previously stored PBKDF2-SHA256 hashes. Cloudflare Workers may reject the previous WebCrypto call because of production iteration limits; this is not a database table/migration error. The same runtime hashing repair applies to custom mailbox password logins.
+
+[Cloudflare Node.js crypto support](https://developers.cloudflare.com/workers/runtime-apis/nodejs/crypto/) · [Workers PBKDF2 iteration limit discussion](https://github.com/cloudflare/workerd/issues/1346).
+
+Do not send passwords or password hashes in bug reports. If setup still fails, inspect the exception **name**, HTTP status and Worker invocation outcome, not the submitted password.
