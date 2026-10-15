@@ -72,6 +72,8 @@ export function App() {
   const detailCache = useRef(new Map<string, DetailCacheEntry>());
   const openRequest = useRef(0);
   const listRequest = useRef(0);
+  const mailViewRef = useRef({ folder, search, accountId: activeAccountId });
+  mailViewRef.current = { folder, search, accountId: activeAccountId };
 
   const detailCacheKey = useCallback(
     (id: string) => `${activeAccountId}:${id}`,
@@ -588,8 +590,12 @@ export function App() {
       );
       if (!response.ok) throw new Error();
       detailCache.current.delete(key);
-      await loadMessages(folder, search, true);
+      if (mailViewRef.current.accountId === activeAccountId &&
+          mailViewRef.current.folder === folder && mailViewRef.current.search === search) {
+        await loadMessages(folder, search, true);
+      }
     } catch {
+      if (mailViewRef.current.accountId !== activeAccountId || mailViewRef.current.folder !== folder) return;
       setMessages(previousMessages);
       setSelected(previousSelected);
       setThread(previousThread);
@@ -638,6 +644,8 @@ export function App() {
         failed?: Array<{id:string;error:string}>;
       };
       if (!response.ok && !result.succeeded?.length) throw new Error(result.error || result.failed?.[0]?.error || "Bulk action failed");
+      if (mailViewRef.current.accountId !== activeAccountId ||
+          mailViewRef.current.folder !== folder || mailViewRef.current.search !== search) return;
       const successIds = new Set(result.succeeded ?? []);
       for (const id of successIds) detailCache.current.delete(detailCacheKey(id));
       if (selected && successIds.has(selected.id)) {
@@ -673,6 +681,7 @@ export function App() {
         const data = await response.json().catch(() => ({})) as {error?:string};
         throw new Error(data.error || "Could not delete permanently");
       }
+      if (mailViewRef.current.accountId !== activeAccountId || mailViewRef.current.folder !== folder) return;
       openRequest.current += 1;
       setSelected(null);
       setThread([]);
