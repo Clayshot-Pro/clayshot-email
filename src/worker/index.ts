@@ -1,11 +1,11 @@
-import { protectedAccountPath, requestedMailAccount } from "./accountAccess";
+import { primaryProfilePath, protectedAccountPath, requestedMailAccount } from "./accountAccess";
 import { beginAdminLogin, adminPasswordConfigured, saveAdminPassword } from "./adminAuth";
 import { reconcileMailboxUsage } from "./usage";
 import {
   deviceStatus, deviceLogin, deviceLogout, deviceRemoveAccount, deviceAccountIds,
   deviceAuthorized, adminAuthorized, rotateMailboxPassword, setMailboxPassword, cleanupDeviceSessions,
 } from "./deviceAuth";
-import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox, purgeExpiredNativeMailboxes } from "./mailboxes";
+import { allNativeMailboxes, createNativeMailbox, updateNativeMailbox, scheduleNativeMailboxDeletion, restoreNativeMailbox, purgeNativeMailbox, purgeExpiredNativeMailboxes, PRIMARY_MAILBOX_ID } from "./mailboxes";
 import { getAccountAvatar } from "./api/accountAvatar";
 import { getConnectedAccounts } from "./api/accounts";
 import { previewAttachment } from "./api/attachments";
@@ -152,9 +152,14 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   const adminRoute = url.pathname === "/api/mailboxes"
     || url.pathname.startsWith("/api/mailboxes/")
     || url.pathname === "/api/auth/sessions"
-    || url.pathname.startsWith("/api/auth/sessions/")
-    || url.pathname.startsWith("/api/profile");
+    || url.pathname.startsWith("/api/auth/sessions/");
   if (adminRoute && !isAdmin) return jsonError("Administrator passkey required", 403);
+
+  // The primary mailbox owns its profile photo. Other mailbox sessions must
+  // not read or overwrite that image; owner passkey sessions remain authorized.
+  if (primaryProfilePath(url.pathname) && !(await deviceAuthorized(request, env, PRIMARY_MAILBOX_ID))) {
+    return jsonError("Primary mailbox sign-in required", 403);
+  }
 
   if (url.pathname === "/api/device/accounts" && request.method === "GET") {
     return getConnectedAccounts(request, env);
