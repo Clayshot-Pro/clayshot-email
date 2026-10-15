@@ -1,4 +1,4 @@
-import { AccountSignIn } from "./AccountSignIn";
+import { AddInboxModal, type AddInboxMode } from "./components/AddInboxModal";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DETAIL_CACHE_MS,
@@ -58,7 +58,7 @@ export function App() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [addCustomOpen, setAddCustomOpen] = useState(false);
+  const [addInboxMode, setAddInboxMode] = useState<AddInboxMode>(null);
   const [activeAccountId, setActiveAccountId] = useState(NATIVE_ACCOUNT_ID);
   const [connectingGmail, setConnectingGmail] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -230,6 +230,11 @@ export function App() {
       window.removeEventListener("focus", refresh);
     };
   }, [folder, search, loadMessages, accountsLoaded, accounts, activeAccountId]);
+
+  const openAddInbox = () => {
+    setSettingsOpen(false);
+    setAddInboxMode("choose");
+  };
 
   const connectGmail = async () => {
     setConnectingGmail(true);
@@ -911,7 +916,7 @@ export function App() {
         activeAccountId={activeAccountId}
         connectingGmail={connectingGmail}
         onAccountChange={switchAccount}
-        onConnectGmail={() => void connectGmail()}
+        onAddInbox={openAddInbox}
         onFolderChange={changeFolder}
         onCompose={startCompose}
         onToggleNotifications={() => void toggleNotifications()}
@@ -967,7 +972,7 @@ export function App() {
         activeAccountId={activeAccountId}
         connectingGmail={connectingGmail}
         onAccountChange={switchAccount}
-        onConnectGmail={() => void connectGmail()}
+        onAddInbox={openAddInbox}
         onOpenSettings={() => setSettingsOpen(true)}
         onFolderChange={changeFolder}
         onCompose={startCompose}
@@ -996,10 +1001,9 @@ export function App() {
         sessionCount={sessionCount}
         busy={settingsBusy}
         isAdmin={isAdmin}
-        onAddCustom={() => { setSettingsOpen(false); setAddCustomOpen(true); }}
         onClose={() => setSettingsOpen(false)}
         onToggleNotifications={() => void toggleNotifications()}
-        onConnectGmail={() => void connectGmail()}
+        onAddInbox={openAddInbox}
         onRemoveAccount={(id) => void removeAccount(id)}
         onEditProfile={() => {
           setSettingsOpen(false);
@@ -1012,16 +1016,15 @@ export function App() {
         onResetSessions={() => void resetSessions()}
         onLogout={() => void logout()}
       />
-      {addCustomOpen && <div className="settings-backdrop" role="presentation" onMouseDown={event => {
-        if (event.currentTarget === event.target) setAddCustomOpen(false);
-      }}>
-        <section className="settings-modal account-login-modal" role="dialog" aria-modal="true" aria-labelledby="add-custom-title">
-          <header><div><span>This device only</span><h2 id="add-custom-title">Add custom email</h2></div>
-            <button type="button" className="settings-close" onClick={() => setAddCustomOpen(false)} aria-label="Close">×</button>
-          </header>
-          <div className="settings-scroll"><AccountSignIn showGoogle={false} onSignedIn={() => window.location.reload()} /></div>
-        </section>
-      </div>}
+      <AddInboxModal
+        mode={addInboxMode}
+        connectingGmail={connectingGmail}
+        onClose={() => setAddInboxMode(null)}
+        onBack={() => setAddInboxMode("choose")}
+        onChooseCustom={() => setAddInboxMode("custom")}
+        onChooseGmail={() => void connectGmail()}
+        onCustomSignedIn={() => window.location.reload()}
+      />
       <SessionListModal
         open={sessionsOpen}
         sessions={sessions}
