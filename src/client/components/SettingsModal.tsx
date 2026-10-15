@@ -132,40 +132,41 @@ export function SettingsModal(props: Props) {
           <section className="settings-section">
             <h3>Security &amp; sessions</h3>
             {props.isAdmin ? (
-              <>            <div className="settings-row">
-              <div>
-                <strong>Passkeys</strong>
-                <small>Passkey creation is disabled after initial setup.</small>
-              </div>
-              <span className="settings-locked">Locked</span>
-            </div>
-            <div className="settings-row">
-              <div>
-                <strong>Active sessions</strong>
-                <small>
-                  {props.sessionCount === null
-                    ? "Checking…"
-                    : `${props.sessionCount} signed-in session${props.sessionCount === 1 ? "" : "s"}`}
-                </small>
-              </div>
-              <div className="settings-row-actions">
-                <button
-                  type="button"
-                  disabled={props.busy !== null}
-                  onClick={props.onViewSessions}
-                >
-                  View all
-                </button>
-                <button
-                  type="button"
-                  disabled={props.busy !== null}
-                  onClick={props.onResetSessions}
-                >
-                  Reset others
-                </button>
-              </div>
-            </div>
-            </>
+              <>
+                <div className="settings-row">
+                  <div>
+                    <strong>Passkeys</strong>
+                    <small>Passkey creation is disabled after initial setup.</small>
+                  </div>
+                  <span className="settings-locked">Locked</span>
+                </div>
+                <div className="settings-row">
+                  <div>
+                    <strong>Active sessions</strong>
+                    <small>
+                      {props.sessionCount === null
+                        ? "Checking…"
+                        : `${props.sessionCount} signed-in session${props.sessionCount === 1 ? "" : "s"}`}
+                    </small>
+                  </div>
+                  <div className="settings-row-actions">
+                    <button
+                      type="button"
+                      disabled={props.busy !== null}
+                      onClick={props.onViewSessions}
+                    >
+                      View all
+                    </button>
+                    <button
+                      type="button"
+                      disabled={props.busy !== null}
+                      onClick={props.onResetSessions}
+                    >
+                      Reset others
+                    </button>
+                  </div>
+                </div>
+              </>
             ) : null}
             <div className="settings-row danger">
               <div>
