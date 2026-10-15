@@ -955,3 +955,169 @@ a:focus-visible {
 @media (max-width: 520px) {
   .admin-home .admin-mailbox-item .mailbox-password-form .settings-primary { width: 100%; }
 }
+
+
+/* Sign-in: compact identity, one clear form, and discreet administrator help. */
+.auth-shell {
+  box-sizing: border-box;
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: max(22px, env(safe-area-inset-top)) 18px max(22px, env(safe-area-inset-bottom));
+}
+.auth-shell .auth-card {
+  box-sizing: border-box;
+  width: min(100%, 448px);
+  flex: 0 0 auto;
+  margin: auto;
+  padding: clamp(22px, 4vw, 32px);
+  gap: 19px;
+  border-radius: 20px;
+  background: linear-gradient(145deg, var(--panel), #191511);
+}
+.auth-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+.auth-brand-row .auth-logo {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  border-radius: 15px;
+  box-shadow: 0 8px 22px rgba(255, 116, 43, .09);
+}
+.auth-brand-row .auth-heading { gap: 5px; min-width: 0; }
+.auth-brand-row .auth-heading h1 {
+  font-size: clamp(1.75rem, 5vw, 2.05rem);
+  line-height: 1.05;
+}
+.auth-intro {
+  margin: -5px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: .92rem;
+}
+.signin-google-button {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: var(--ui-control);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease;
+}
+.signin-google-button:hover:not(:disabled) {
+  border-color: var(--ui-focus-border);
+  background: var(--ui-control-hover);
+}
+.signin-google-button:disabled { opacity: .6; cursor: wait; }
+.signin-google-mark {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #f9f6f2;
+  color: #39312c;
+  font-size: 14px;
+  font-weight: 800;
+}
+.account-signin .account-signin-divider { margin: 0; font-size: .78rem; }
+.account-signin .signin-email-form { gap: 15px; }
+.signin-form-heading { display: grid; gap: 4px; }
+.signin-form-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.03rem;
+  font-weight: 740;
+}
+.signin-form-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .81rem;
+  line-height: 1.45;
+}
+.signin-field { display: grid; gap: 7px; min-width: 0; }
+.account-signin .signin-field label { color: var(--text); font-size: .84rem; }
+.account-signin .signin-field input {
+  min-height: 47px;
+  border-radius: 11px;
+  font-size: .93rem;
+}
+.signin-password-field { position: relative; min-width: 0; }
+.account-signin .signin-password-field input { padding-right: 74px; }
+.signin-show-password {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  min-width: 50px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-2);
+  font: inherit;
+  font-size: .79rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.signin-show-password:hover { color: var(--text); }
+.account-signin .signin-submit { min-height: 48px; font-size: .94rem; }
+.signin-admin-note {
+  margin: -4px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: .8rem;
+}
+.auth-admin-help {
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: .82rem;
+  line-height: 1.55;
+}
+.auth-admin-help summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--accent-2);
+  font-weight: 650;
+}
+.auth-admin-help p { margin: 9px 0 0; overflow-wrap: anywhere; }
+.auth-state { padding: 18px 0; text-align: center; }
+.auth-card .auth-error { margin: 0; font-size: .84rem; }
+@media (max-width: 520px) {
+  .auth-shell .auth-card { margin: auto; padding: 22px 19px; gap: 17px; border-radius: 17px; }
+  .auth-brand-row .auth-logo { width: 50px; height: 50px; flex-basis: 50px; }
+  .auth-brand-row .auth-heading h1 { font-size: 1.7rem; }
+}
+
+/* Keep Edit profile and Remove actions usable on narrow account rows. */
+.settings-account > .settings-account-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+@media (max-width: 520px) {
+  .settings-account { flex-wrap: wrap; }
+  .settings-account > .settings-account-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

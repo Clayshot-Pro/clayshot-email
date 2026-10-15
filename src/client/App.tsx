@@ -93,11 +93,9 @@ export function App() {
         ? response.json() as Promise<{ hasPhoto: boolean; version: string | null }>
         : null)
       .then((profile) => {
-        if (profile?.hasPhoto) {
-          setProfilePhotoUrl(
-            `/api/profile/photo?v=${encodeURIComponent(profile.version ?? "1")}`,
-          );
-        }
+        setProfilePhotoUrl(profile?.hasPhoto
+          ? `/api/profile/photo?v=${encodeURIComponent(profile.version ?? "1")}`
+          : null);
       })
       .catch(() => undefined);
   }, [refreshAccounts]);
