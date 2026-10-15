@@ -6,6 +6,7 @@ export type AddInboxMode = "choose" | "custom" | null;
 type Props = {
   mode: AddInboxMode;
   connectingGmail: boolean;
+  gmailError: string | null;
   onClose: () => void;
   onBack: () => void;
   onChooseCustom: () => void;
@@ -16,6 +17,7 @@ type Props = {
 export function AddInboxModal({
   mode,
   connectingGmail,
+  gmailError,
   onClose,
   onBack,
   onChooseCustom,
@@ -72,6 +74,7 @@ export function AddInboxModal({
                 </button>
               </div>
               {connectingGmail ? <p className="add-inbox-feedback" role="status">Connecting to Google…</p> : null}
+              {gmailError ? <p className="auth-error" role="alert">{gmailError}</p> : null}
             </>
           ) : (
             <>
