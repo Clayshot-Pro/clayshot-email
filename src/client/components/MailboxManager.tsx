@@ -190,18 +190,22 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
           <h3>Create an address</h3>
           <p>A secure password will be generated for the new mailbox.</p>
         </div>
-      <form className="mailbox-create-form" onSubmit={e => void create(e)}>
-        <label htmlFor="new-mailbox-address">New mailbox address</label>
-        <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
-          placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
-          required className="mailbox-entry-input" />
-        <label htmlFor="new-mailbox-name">Display name (optional)</label>
-        <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
-          placeholder="Personal" className="mailbox-entry-input" />
-        <button className="settings-primary" type="submit" disabled={busy !== null || !address.trim()}>
-          {busy === "new" ? "Creating…" : "Create mailbox"}
-        </button>
-      </form>
+        <form className="mailbox-create-form" onSubmit={e => void create(e)}>
+          <label htmlFor="new-mailbox-address">
+            Email address
+            <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
+              placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
+              required className="mailbox-entry-input" />
+          </label>
+          <label htmlFor="new-mailbox-name">
+            Display name <span className="admin-field-optional">(optional)</span>
+            <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
+              placeholder="Personal" className="mailbox-entry-input" />
+          </label>
+          <button className="settings-primary" type="submit" disabled={busy !== null || !address.trim()}>
+            {busy === "new" ? "Creating…" : "Create mailbox"}
+          </button>
+        </form>
       {newCredential && <div className="mailbox-generated-password" role="status">
         <strong>One-time login for {newCredential.address}</strong>
         <p>Copy this password now. It is not stored in readable form and will disappear when this panel closes.</p>
@@ -223,7 +227,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
         {loaded && mailboxes.length === 0 ? (
           <p className="admin-mailbox-empty">No mailboxes found.</p>
         ) : null}
-      <div className="settings-accounts">
+      <div className="settings-accounts admin-mailbox-items">
         {mailboxes.map(box => {
           const expired = Boolean(box.purge_after && Date.parse(box.purge_after.replace(" ", "T") + "Z") <= Date.now());
           const isPrimary = box.id === "native:primary";
@@ -272,20 +276,33 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
                   </div>
                 ) : null}
               </div>
-              <div className="settings-row-actions" style={{ flexWrap: "wrap" }}>
-                {!box.deleted_at && editing !== box.id && <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit</button>}
-                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => {
-                  setPasswordFor(passwordFor===box.id?null:box.id);
-                  setCustomPassword("");setConfirmPassword("");setShowPassword(false);setNotice(null);
-                }}>{passwordFor===box.id?"Cancel password change":"Set password"}</button>}
-                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void resetPassword(box)}>Generate password</button>}
-                {!box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>}
-                {!isPrimary && !box.deleted_at && (
-                  <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
-                    {box.status === "active" ? "Disable" : "Enable"}
-                  </button>
+              <div className="settings-row-actions">
+                {!box.deleted_at && editing !== box.id && (
+                  <button type="button" disabled={busy !== null} onClick={() => edit(box)}>Edit details</button>
                 )}
-                {!isPrimary && !box.deleted_at && <button className="mailbox-danger-button" type="button" disabled={busy !== null} onClick={() => void remove(box)}>Delete</button>}
+                {!box.deleted_at && (
+                  <button type="button" disabled={busy !== null} onClick={() => {
+                    setPasswordFor(passwordFor === box.id ? null : box.id);
+                    setCustomPassword("");setConfirmPassword("");setShowPassword(false);setNotice(null);
+                  }}>{passwordFor === box.id ? "Cancel password change" : "Change password"}</button>
+                )}
+                {!box.deleted_at && (
+                  <details className="admin-mailbox-more">
+                    <summary>More actions</summary>
+                    <div className="admin-mailbox-more-content">
+                      <button type="button" disabled={busy !== null} onClick={() => void resetPassword(box)}>Generate password</button>
+                      <button type="button" disabled={busy !== null} onClick={() => void reconcile(box)}>Recount storage</button>
+                      {!isPrimary && (
+                        <>
+                          <button type="button" disabled={busy !== null} onClick={() => void change(box, box.status === "active" ? "disabled" : "active")}>
+                            {box.status === "active" ? "Disable" : "Enable"}
+                          </button>
+                          <button className="mailbox-danger-button" type="button" disabled={busy !== null} onClick={() => void remove(box)}>Delete</button>
+                        </>
+                      )}
+                    </div>
+                  </details>
+                )}
                 {box.deleted_at && !expired && <button type="button" disabled={busy !== null} onClick={() => void restore(box)}>Restore</button>}
                 {box.deleted_at && expired && <button className="mailbox-danger-button" type="button" disabled={busy !== null} onClick={() => void purge(box)}>Erase permanently</button>}
               </div>
