@@ -726,6 +726,10 @@ export function App() {
     if (!selected || activeAccountId.startsWith("gmail:")) return;
     if (!confirm("Permanently delete this message? This cannot be undone.")) return;
     const id = selected.id;
+    const shieldKey = mailMutationKey(activeAccountId, id);
+    mutationShields.current.set(shieldKey, { flags: {}, hide: true, updatedAt: Date.now() });
+    listRequest.current += 1;
+    setMessages(current => current.filter(item => item.id !== id));
     setError(null);
     try {
       const response = await fetch(
@@ -744,6 +748,10 @@ export function App() {
       detailCache.current.delete(detailCacheKey(id));
       await loadMessages(folder, search, true);
     } catch (cause) {
+      mutationShields.current.delete(shieldKey);
+      if (mailViewRef.current.accountId === activeAccountId && mailViewRef.current.folder === folder) {
+        void loadMessages(folder, search, true);
+      }
       setError(cause instanceof Error ? cause.message : "Could not delete permanently");
     }
   };
