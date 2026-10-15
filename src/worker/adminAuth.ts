@@ -73,15 +73,28 @@ export async function saveAdminPassword(env: Env,newPassword: unknown,currentPas
     }
     if (currentPassword===newPassword) return {error:"Choose a different new password"};
   }
-  const hash=await preparePassword(newPassword as string, "admin");
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO admin_credentials (id,password_salt,password_hash,iterations)
-     VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET
-     password_salt=excluded.password_salt,password_hash=excluded.password_hash,
-     iterations=excluded.iterations,changed_at=CURRENT_TIMESTAMP`).bind(hash.salt,hash.hash,hash.iterations),
-    env.DB.prepare("DELETE FROM admin_login_pending"),
-    // Invalidate all previous passkey-only sessions when the password is set or rotated.
-    env.DB.prepare("DELETE FROM auth_sessions"),
-  ]);
+  // Separate hashing failures from D1 failures. Never log or return passwords,
+  // password hashes, salts, or SQL bound values.
+  let hash;
+  try {
+    hash = await preparePassword(newPassword as string, "admin");
+  } catch (cause) {
+    console.error("admin_password_hash_failure", cause instanceof Error ? cause.name : "unknown");
+    return {error:"Password security initialization failed (ADMIN_HASH_UNAVAILABLE). Please try again."};
+  }
+  try {
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO admin_credentials (id,password_salt,password_hash,iterations)
+       VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET
+       password_salt=excluded.password_salt,password_hash=excluded.password_hash,
+       iterations=excluded.iterations,changed_at=CURRENT_TIMESTAMP`).bind(hash.salt,hash.hash,hash.iterations),
+      env.DB.prepare("DELETE FROM admin_login_pending"),
+      // Invalidate previous passkey-only sessions after a successful password change.
+      env.DB.prepare("DELETE FROM auth_sessions"),
+    ]);
+  } catch (cause) {
+    console.error("admin_password_storage_failure", cause instanceof Error ? cause.name : "unknown");
+    return {error:"Could not save the password (ADMIN_STORAGE_UNAVAILABLE). Please try again."};
+  }
   return {};
 }
