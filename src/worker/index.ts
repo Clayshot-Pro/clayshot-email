@@ -40,6 +40,7 @@ const AUTH_POSTS = new Set([
   "/api/auth/login/options",
   "/api/auth/login/verify",
   "/api/admin/login/password",
+  "/api/accounts/gmail/connect",
 ]);
 const MAX_API_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -68,6 +69,7 @@ function secureApiResponse(response: Response): Response {
   headers.set("Referrer-Policy", "no-referrer");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
+  headers.set("Cross-Origin-Resource-Policy", "same-origin");
 
   return new Response(response.body, {
     status: response.status,
