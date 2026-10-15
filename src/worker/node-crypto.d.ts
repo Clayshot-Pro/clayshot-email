@@ -3,6 +3,12 @@
  * our Cloudflare Worker + browser TypeScript project.
  */
 declare module "node:crypto" {
+  export function scryptSync(
+    password: string | Uint8Array,
+    salt: string | Uint8Array,
+    keylen: number,
+    options?: { N?: number; r?: number; p?: number; maxmem?: number },
+  ): Uint8Array;
   export function pbkdf2Sync(
     password: string | Uint8Array,
     salt: string | Uint8Array,

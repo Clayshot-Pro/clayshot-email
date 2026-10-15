@@ -40,7 +40,7 @@ export function AdminPanel() {
         ? await response.json() as {error?:string}
         : null;
       if (!response.ok) {
-        throw new Error(result?.error ?? `Unable to save the password (HTTP ${response.status}). Check Cloudflare Worker logs.`);
+        throw new Error(result?.error ?? `Unable to save the administrator password (HTTP ${response.status}). Please try again.`);
       }
       setCurrentPassword("");setNewPassword("");setConfirmPassword("");
       // All prior owner sessions were invalidated by the credential update.
@@ -67,7 +67,7 @@ export function AdminPanel() {
         <p>{configured
           ? "Changing this password signs out all administrator sessions. Your passkey remains required at the next sign-in."
           : "One-time setup: choose your administrator password. Your existing passkey remains the second factor."}</p>
-        <p>Special characters such as ? and ! are supported. Use at least 16 characters.</p>
+        <p>Use 8–32 characters. Special characters such as ? and ! are supported.</p>
         <form className="auth-setup admin-password-form" onSubmit={event=>void saveAdminPassword(event)}>
           {configured && <label htmlFor="admin-current-password">Current password
             <input id="admin-current-password" type="password" value={currentPassword}
