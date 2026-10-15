@@ -1,5 +1,6 @@
 import { sanitizeEmailHtml } from "../email/html";
 import { getGoogleAccessToken } from "./googleCredentials";
+import { gmailMatchesFolder } from "./gmailFolder";
 import type { MailProvider, ProviderListOptions, ProviderMessage, ProviderMutation, ProviderSendInput, ProviderSendResult } from "./types";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -274,21 +275,6 @@ const q = (folder: string) => folder === "inbox"
         : folder === "archive"
           ? "-in:inbox -in:sent -in:trash -in:spam -in:drafts"
           : "";
-
-// Gmail's search index can lag a successful trash/archive mutation.
-// Recheck each fetched message's current labels before displaying it.
-export function gmailMatchesFolder(labels: string[] | undefined, folder: MailFolder): boolean {
-  if (!labels) return false;
-  const current = new Set(labels);
-  if (folder === "trash") return current.has("TRASH");
-  if (current.has("TRASH")) return false;
-  if (folder === "junk") return current.has("SPAM");
-  if (current.has("SPAM")) return false;
-  if (folder === "inbox") return current.has("INBOX");
-  if (folder === "sent") return current.has("SENT");
-  if (folder === "starred") return current.has("STARRED");
-  return !current.has("INBOX") && !current.has("SENT") && !current.has("DRAFT");
-}
 
 export async function gmailFullMessage(env: Env, accountId: string, id: string, _includePhotos = false) {
   const raw = await (await call(env, accountId, `/messages/${encodeURIComponent(id)}?format=full`)).json<GmailMessage>();
