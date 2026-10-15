@@ -40,14 +40,20 @@ export async function ensureNativeAccount(env: Env): Promise<void> {
 
 export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[]> {
   await ensureNativeAccount(env);
-  const [mailboxes, result] = await Promise.all([
+  const [mailboxes, result, profilePhoto] = await Promise.all([
     allNativeMailboxes(env),
     env.DB.prepare(`
       SELECT id, provider, email_address, display_name, status, last_synced_at
       FROM connected_accounts WHERE provider = 'gmail' AND status != 'disabled'
       ORDER BY created_at ASC
     `).all<AccountRow>(),
+    // Missing or temporarily unavailable profile storage must not break the inbox.
+    env.MAIL.head("profile/avatar.jpg").catch(() => null),
   ]);
+  const profileVersion = profilePhoto?.customMetadata?.uploadedAt ?? profilePhoto?.etag ?? "1";
+  const primaryAvatarUrl = profilePhoto
+    ? `/api/profile/photo?v=${encodeURIComponent(profileVersion)}`
+    : null;
 
   return [
     ...mailboxes.filter((box) => box.status === "active").map((box) => ({
@@ -55,7 +61,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       provider: "native" as const,
       emailAddress: box.email_address,
       displayName: box.display_name || null,
-      avatarUrl: box.id === NATIVE_ACCOUNT_ID ? "/api/profile/photo" : null,
+      avatarUrl: box.id === NATIVE_ACCOUNT_ID ? primaryAvatarUrl : null,
       status: box.status,
       lastSyncedAt: null,
       sendEnabled: box.id === NATIVE_ACCOUNT_ID || env.MULTI_SENDER_APPROVED === "true",
