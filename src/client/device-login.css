@@ -419,3 +419,26 @@ a:focus-visible {
   .admin-home-header .auth-secondary { width: 100%; }
   .admin-home .settings-account .settings-row-actions { width: 100%; }
 }
+
+.mailbox-create-form {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+.mailbox-entry-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-field-border);
+  border-radius: 9px;
+  background: var(--ui-field);
+  color: var(--text);
+  font: inherit;
+  color-scheme: dark;
+}
+.mailbox-entry-input::placeholder { color: var(--muted-2); }
+.mailbox-entry-input:focus {
+  border-color: var(--ui-focus-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
