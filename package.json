@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@block65/webcrypto-web-push": "^2.0.0",
-    "@simplewebauthn/browser": "^13.2.2",
+    "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^13.2.2",
     "postal-mime": "^4.0.5",
     "react": "^19.3.0",
