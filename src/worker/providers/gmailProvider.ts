@@ -413,6 +413,22 @@ export function gmailProvider(env: Env, accountId: string, email: string): MailP
       return true;
     },
 
+    async patchThread(id, isDeleted: boolean) {
+      // The message lookup happens under this provider's already authorized
+      // Gmail account. Never accept an unchecked thread ID from a request.
+      const message = await (await call(
+        env, accountId,
+        "/messages/" + encodeURIComponent(id) + "?format=minimal",
+      )).json<GmailMessage>();
+      if (!message.threadId) return false;
+      await call(
+        env, accountId,
+        "/threads/" + encodeURIComponent(message.threadId) + "/" + (isDeleted ? "trash" : "untrash"),
+        { method: "POST" },
+      );
+      return true;
+    },
+
     async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
       if (input.attachments.reduce((total, attachment) => total + attachment.content.byteLength, 0) > MAX_ATTACHMENT) {
         throw new Error("Attachments too large");
