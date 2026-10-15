@@ -24,7 +24,7 @@ Once the password is saved, all existing passkey-only administrator sessions are
 ## Security design
 
 - Only one administrator password record is allowed (`admin_credentials.id=1`). `admin@liamthemo.com` cannot be registered as a normal mailbox or logged into via the ordinary mailbox password flow.
-- Administrator password is salted and PBKDF2-SHA256 hashed with 310,000 iterations; plaintext is neither logged nor committed. Per-IP login attempts are rate-limited.
+- New administrator passwords are salted and **scrypt** hashed (N=16,384, r=8, p=1); plaintext is neither logged nor committed. Per-IP login attempts are rate-limited. Legacy PBKDF2-SHA256 records retain their original per-record verification parameters.
 - A successful administrator password entry issues an HttpOnly, Secure, SameSite=Strict cookie for a short-lived pending login. The password proof is stored hashed and expires after five minutes.
 - WebAuthn passkey options require the pending password proof once the admin password is configured. Each passkey challenge records the pending proof identifier. Successful passkey verification must consume that matching proof exactly once before the owner session is issued.
 - Owner sessions are the only sessions authorized for `/api/mailboxes/*` and protected profile/session administration. Ordinary mailbox or Gmail sessions have no admin authority.
@@ -45,10 +45,14 @@ Once the password is saved, all existing passkey-only administrator sessions are
 
 There is no automatic administrator password recovery or passkey bypass. Save the administrator password in a trusted password manager and retain access to the existing registered passkey. A lockout requires a separate owner-controlled recovery process, not a public reset link.
 
-## v2.04 fix: Cloudflare runtime-compatible hashing
+## v2.05 fix: Cloudflare production runtime and wording
 
-Administrator passwords accept **8–32 characters** (the custom mailbox password policy remains 16–128). Punctuation, including `?`, is supported. This release replaces the WebCrypto PBKDF2 call with Workers-supported `node:crypto` PBKDF2, retaining the 310,000-iteration work factor and compatibility with previously stored PBKDF2-SHA256 hashes. Cloudflare Workers may reject the previous WebCrypto call because of production iteration limits; this is not a database table/migration error. The same runtime hashing repair applies to custom mailbox password logins.
+**Admin password setup: 8–32 characters.** The separate regular mailbox policy remains 16–128 characters; punctuation such as `?` and `!` is supported.
 
-[Cloudflare Node.js crypto support](https://developers.cloudflare.com/workers/runtime-apis/nodejs/crypto/) · [Workers PBKDF2 iteration limit discussion](https://github.com/cloudflare/workerd/issues/1346).
+Cloudflare Workers limits PBKDF2 to 100,000 iterations on some production runtime paths. The earlier 310,000-iteration PBKDF2 hashing of new passwords could throw `NotSupportedError` before D1 was called, even though tests passed in Node. New administrator and mailbox passwords now use Workers-supported **scrypt** with a per-record version marker stored in the existing `iterations` column (`-1`). Existing positive-value PBKDF2-SHA256 records remain recognized for verification. This is a code/runtime fix; **no new D1 migration or Cloudflare secrets are needed**.
 
-Do not send passwords or password hashes in bug reports. If setup still fails, inspect the exception **name**, HTTP status and Worker invocation outcome, not the submitted password.
+The main application and CI include a new isolated Cloudflare workerd integration test for password creation and verification. Admin password save errors have separate non-sensitive server diagnostics for hash failures and D1 failures, and the UI no longer offers the obsolete advice to check D1 migrations by default.
+
+[Cloudflare cryptography support](https://developers.cloudflare.com/workers/runtime-apis/nodejs/crypto/) · [Cloudflare PBKDF2 iteration limit](https://github.com/cloudflare/workerd/issues/1346).
+
+Do not share passwords, raw hashes, recovery tokens or credentials in bug reports.
