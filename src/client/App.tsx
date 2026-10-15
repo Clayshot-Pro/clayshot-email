@@ -42,6 +42,9 @@ export function App() {
   const [openingMessageId, setOpeningMessageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMailIds, setSelectedMailIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [compose, setCompose] = useState<ComposeState>(EMPTY_COMPOSE);
@@ -243,6 +246,8 @@ export function App() {
     openRequest.current += 1;
     listRequest.current += 1;
     setMessages([]);
+    setSelectionMode(false);
+    setSelectedMailIds([]);
     setUnreadCount(0);
     setDraftCount(0);
     setLoading(true);
@@ -300,6 +305,8 @@ export function App() {
 
   const changeFolder = (nextFolder: Folder) => {
     openRequest.current += 1;
+    setSelectionMode(false);
+    setSelectedMailIds([]);
     setFolder(nextFolder);
     setSelected(null);
     setThread([]);
@@ -580,6 +587,8 @@ export function App() {
         },
       );
       if (!response.ok) throw new Error();
+      detailCache.current.delete(key);
+      await loadMessages(folder, search, true);
     } catch {
       setMessages(previousMessages);
       setSelected(previousSelected);
@@ -669,6 +678,7 @@ export function App() {
     setCompose(EMPTY_COMPOSE);
     setComposeAccountId(activeAccountId);
     setFiles([]);
+    if (folder === "drafts") void loadMessages("drafts", search, true);
   };
 
   const submitCompose = async (event: FormEvent<HTMLFormElement>) => {
@@ -707,6 +717,7 @@ export function App() {
         setActiveAccountId(composeAccountId);
       }
       setFolder("sent");
+      if (folder === "sent" && composeAccountId === activeAccountId) void loadMessages("sent", search, true);
       setSelected(null);
       setThread([]);
       setOpeningMessageId(null);
@@ -762,7 +773,18 @@ export function App() {
           notificationState={notificationState}
           notificationsDisabled={notificationsDisabled}
           onSearchChange={setSearch}
-          onRefresh={() => void loadMessages()}
+          onRefresh={() => loadMessages()}
+          selectionMode={selectionMode}
+          selectedIds={selectedMailIds}
+          bulkBusy={bulkBusy}
+          canPermanentlyDelete={accounts.find((account) => account.id === activeAccountId)?.provider === "native"}
+          onToggleSelection={() => {
+            setSelectionMode((current) => !current);
+            setSelectedMailIds([]);
+          }}
+          onToggleMailSelected={toggleMailSelection}
+          onToggleSelectAll={toggleAllMailSelection}
+          onBulkAction={(action) => void performBulkAction(action)}
           onOpenMessage={(id) => void openMessage(id)}
           onToggleNotifications={() => void toggleNotifications()}
         />
@@ -776,6 +798,8 @@ export function App() {
           onReply={startReply}
           onForward={startForward}
           onPatch={(patch, closeAfter) => void patchSelected(patch, closeAfter)}
+          canPermanentlyDelete={accounts.find((account) => account.id === activeAccountId)?.provider === "native"}
+          onPermanentDelete={() => void permanentlyDeleteSelected()}
         />
       </div>
       <MobileNav
