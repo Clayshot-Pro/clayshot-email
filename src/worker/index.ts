@@ -348,7 +348,7 @@ export default {
         const outcome = response.ok ? "success" : response.status === 401 || response.status === 403 ? "denied" : "failure";
         // Paginated operations are one logical action: record completion and
         // failures, not hundreds of indistinguishable intermediate chunks.
-        const paginated = /\\/(purge|reconcile)$/.test(url.pathname);
+        const paginated = url.pathname.endsWith("/purge") || url.pathname.endsWith("/reconcile");
         const page = paginated && response.ok
           ? await response.clone().json().catch(() => null) as { complete?: boolean } | null
           : null;
