@@ -31,6 +31,7 @@ import type {
   NotificationState,
 } from "./mailTypes";
 import { forwardSubject, replySubject } from "./mailUtils";
+import { applyMailMutationShields, mailMutationKey, type MailMutationFlags, type MailMutationShield } from "./mailMutationShields";
 
 export function App() {
   const [folder, setFolder] = useState<Folder>("inbox");
@@ -72,6 +73,7 @@ export function App() {
   const detailCache = useRef(new Map<string, DetailCacheEntry>());
   const openRequest = useRef(0);
   const listRequest = useRef(0);
+  const mutationShields = useRef(new Map<string, MailMutationShield>());
   const mailViewRef = useRef({ folder, search, accountId: activeAccountId });
   mailViewRef.current = { folder, search, accountId: activeAccountId };
 
@@ -188,8 +190,12 @@ export function App() {
           draftCount: number;
         };
         if (requestId !== listRequest.current) return;
-        setMessages(data.messages);
-        setUnreadCount(data.unreadCount);
+        const guarded = applyMailMutationShields(activeFolder, activeAccountId, data.messages, mutationShields.current);
+        setMessages(guarded);
+        const visibleIds = new Set(guarded.map(item => item.id));
+        const shieldedUnread = data.messages.filter(item =>
+          !visibleIds.has(item.id) && item.direction === "inbound" && !item.isRead).length;
+        setUnreadCount(Math.max(0, data.unreadCount - shieldedUnread));
         setDraftCount(data.draftCount);
       } catch (caught) {
         if (!silent && requestId === listRequest.current) {
@@ -545,16 +551,32 @@ export function App() {
     const previousThread = thread;
     const previousUnreadCount = unreadCount;
     const nextSelected = { ...target, ...patch } as MessageDetail;
+    // The reader displays a collapsed conversation. Delete/restore that whole
+    // conversation, not only its representative item (which would resurface
+    // an older message with the same subject after the next refresh).
+    const conversationMutation = typeof patch.isDeleted === "boolean";
+    const matchesTarget = (message: MessageListItem) => conversationMutation
+      ? message.threadId === target.threadId
+      : message.id === target.id;
+    const shieldKey = mailMutationKey(activeAccountId,
+      conversationMutation ? target.threadId : target.id,
+      conversationMutation ? "thread" : "message");
+    mutationShields.current.set(shieldKey, {
+      flags: patch as MailMutationFlags,
+      updatedAt: Date.now(),
+    });
+    // Reject all GETs started before this write, including focus/pull refreshes.
+    listRequest.current += 1;
     const keepInCurrentFolder = belongsInFolder(folder, nextSelected);
 
     setError(null);
     setMessages((current) => current
       .map((message) =>
-        message.id === target.id
+        matchesTarget(message)
           ? { ...message, ...patch } as MessageListItem
           : message)
       .filter((message) =>
-        message.id !== target.id || belongsInFolder(folder, message)));
+        !matchesTarget(message) || belongsInFolder(folder, message)));
     setThread((current) => current.map((message) =>
       message.id === target.id
         ? { ...message, ...patch } as MessageDetail
@@ -585,17 +607,21 @@ export function App() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patch),
+          body: JSON.stringify(conversationMutation ? { ...patch, scope: "thread" } : patch),
         },
       );
       if (!response.ok) throw new Error();
       detailCache.current.delete(key);
+      if (conversationMutation) {
+        for (const item of previousThread) detailCache.current.delete(detailCacheKey(item.id));
+      }
       if (mailViewRef.current.accountId === activeAccountId &&
           mailViewRef.current.folder === folder && mailViewRef.current.search === search) {
         await loadMessages(folder, search, true);
       }
     } catch {
       if (mailViewRef.current.accountId !== activeAccountId || mailViewRef.current.folder !== folder) return;
+      mutationShields.current.delete(shieldKey);
       setMessages(previousMessages);
       setSelected(previousSelected);
       setThread(previousThread);
