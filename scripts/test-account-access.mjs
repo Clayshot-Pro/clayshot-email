@@ -36,6 +36,15 @@ for(const input of [sent(allowed,allowed),draft(allowed,allowed)]) {
 const read=new URL("/api/messages/one?accountId="+encodeURIComponent(allowed),destination);
 assert.deepEqual(await requestedMailAccount(new Request(read),read),{accountId:allowed});
 assert.equal(protectedAccountPath("/api/contact-avatar"),true,"Gmail contacts must be account-gated");
+assert.equal(protectedAccountPath("/api/messages/bulk"),true,
+  "bulk actions must pass through per-device account authorization");
+assert.equal(protectedAccountPath("/api/messages/one"),true,
+  "permanent deletion must pass through the same account authorization");
+const bulkUrl=new URL("/api/messages/bulk?accountId="+encodeURIComponent(allowed),destination);
+assert.deepEqual(await requestedMailAccount(new Request(bulkUrl,{
+  method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({ids:["message-one"],action:"permanent"}),
+}),bulkUrl),{accountId:allowed},"bulk operations are scoped to the authorized URL account");
 assert.equal(protectedAccountPath("/api/attachments/one"),true);
 assert.equal(protectedAccountPath("/api/attachment-previews/one"),true);
 assert.equal(protectedAccountPath("/api/send"),true);

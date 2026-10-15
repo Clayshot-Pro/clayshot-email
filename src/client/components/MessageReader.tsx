@@ -16,6 +16,8 @@ type MessageReaderProps = {
   onReply: () => void;
   onForward: () => void;
   onPatch: (patch: Record<string, boolean>, closeAfter?: boolean) => void;
+  canPermanentlyDelete: boolean;
+  onPermanentDelete: () => void;
 };
 
 function messageSender(message: MessageDetail): string {
@@ -57,7 +59,7 @@ function RichEmailBody({ html }: { html: string }) {
   );
 }
 
-export function MessageReader({ message, thread, folderLabel, loading = false, accountId, onBack, onReply, onForward, onPatch }: MessageReaderProps) {
+export function MessageReader({ message, thread, folderLabel, loading = false, accountId, onBack, onReply, onForward, onPatch, canPermanentlyDelete, onPermanentDelete }: MessageReaderProps) {
   const [previewAttachment, setPreviewAttachment] = useState<MessageDetail["attachments"][number] | null>(null);
 
   if (loading && !message) {
@@ -109,7 +111,11 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
             <button className="mobile-reader-action destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)} aria-label="Delete message"><Icon name="trash" size={17}/><span>Delete</span></button>
           ) : (
             <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isDeleted: false }, true)} aria-label="Restore message"><Icon name="inbox" size={17}/><span>Restore</span></button>
+              
           )}
+          {message.isDeleted && canPermanentlyDelete ? (
+            <button className="mobile-reader-action destructive" type="button" onClick={onPermanentDelete} aria-label="Permanently delete message"><Icon name="trash" size={17}/><span>Delete forever</span></button>
+          ) : null}
         </div>
       </header>
 
@@ -180,6 +186,9 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
         ) : (
           <button type="button" onClick={() => onPatch({ isDeleted: false }, true)}><Icon name="inbox" size={16}/>Restore</button>
         )}
+        {message.isDeleted && canPermanentlyDelete ? (
+          <button className="destructive" type="button" onClick={onPermanentDelete}><Icon name="trash" size={16}/>Delete forever</button>
+        ) : null}
       </footer>
 
       <AttachmentPreview attachment={previewAttachment} accountId={accountId} onClose={() => setPreviewAttachment(null)}/>
