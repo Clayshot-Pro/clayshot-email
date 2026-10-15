@@ -1,3 +1,4 @@
+import { protectedAccountPath, requestedMailAccount } from "./accountAccess";
 import { beginAdminLogin, adminPasswordConfigured, saveAdminPassword } from "./adminAuth";
 import { reconcileMailboxUsage } from "./usage";
 import {
@@ -182,27 +183,14 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     }
   }
 
-  // Validate the mailbox against the CURRENT device before dispatching any
-  // messages, drafts, send, attachments, or provider metadata.
-  const accountDataRoute = url.pathname === "/api/messages"
-    || url.pathname.startsWith("/api/messages/")
-    || url.pathname === "/api/send"
-    || url.pathname === "/api/drafts"
-    || url.pathname.startsWith("/api/drafts/")
-    || url.pathname.startsWith("/api/attachment-previews/")
-    || url.pathname.startsWith("/api/attachments/");
-  if (accountDataRoute) {
-    let requested = url.searchParams.get("accountId");
-    if (!requested && request.method === "POST") {
-      if (url.pathname === "/api/send") {
-        const form = await request.clone().formData().catch(() => null);
-        requested = typeof form?.get("accountId") === "string" ? String(form.get("accountId")) : null;
-      } else if (url.pathname === "/api/drafts") {
-        const body = await request.clone().json().catch(() => null) as {accountId?:unknown} | null;
-        requested = typeof body?.accountId === "string" ? body.accountId : null;
-      }
-    }
-    if (!requested && isAdmin) requested = "native:primary";
+  // Authorization must use the mailbox the handler actually operates on.
+  // Previously POST /api/send and /api/drafts could authorize query accountId
+  // but act on a different body accountId. Contact photo reads require the
+  // same per-device account grant as the rest of the Gmail API.
+  if (protectedAccountPath(url.pathname)) {
+    const target = await requestedMailAccount(request, url);
+    if (target.error) return jsonError(target.error, 400);
+    const requested = target.accountId ?? (isAdmin ? "native:primary" : null);
     if (!requested || !(await deviceAuthorized(request, env, requested))) {
       return jsonError("Account not signed in on this device", 403);
     }
