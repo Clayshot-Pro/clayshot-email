@@ -22,4 +22,7 @@ assert.match(mailboxPasswordError("short")??"",/at least 16/);
 assert.match(mailboxPasswordError("z".repeat(20))??"",/repetitive/);
 assert.match(mailboxPasswordError("password-with-newline"+String.fromCharCode(10)+"2026")??"",/control/);
 console.log("PASS: admin login address reserved and custom password policy validated");
-\nassert.equal(adminPasswordError("Abcd?789"),null);\nassert.match(adminPasswordError("short")??"",/at least 8/);\nassert.match(adminPasswordError("X".repeat(33))??"",/at most 32/);\n
+
+assert.equal(adminPasswordError("Abcd?789"),null);
+assert.match(adminPasswordError("short")??"",/at least 8/);
+assert.match(adminPasswordError("X".repeat(33))??"",/at most 32/);
