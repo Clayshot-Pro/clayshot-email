@@ -272,7 +272,17 @@ export async function patchMessage(request: Request, id: string, env: Env): Prom
     if (typeof body[key] === "boolean") mutation[key] = body[key];
   }
   if (!Object.keys(mutation).length) return Response.json({ error: "No supported fields supplied" }, { status: 400 });
-  const changed = await provider.patchMessage(id, mutation);
+  const scope = body.scope;
+  if (scope !== undefined && scope !== "thread") {
+    return Response.json({ error: "Invalid message mutation scope" }, { status: 400 });
+  }
+  if (scope === "thread" &&
+      (typeof mutation.isDeleted !== "boolean" || Object.keys(mutation).length !== 1)) {
+    return Response.json({ error: "Only deleting or restoring a conversation is supported" }, { status: 400 });
+  }
+  const changed = scope === "thread"
+    ? await provider.patchThread(id, mutation.isDeleted!)
+    : await provider.patchMessage(id, mutation);
   return changed
     ? Response.json({ ok: true, accountId: provider.accountId })
     : Response.json({ error: "Message not found" }, { status: 404 });

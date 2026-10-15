@@ -113,6 +113,19 @@ export class NativeMailProvider implements MailProvider {
     return Boolean(result.meta.changes);
   }
 
+  async patchThread(id: string, isDeleted: boolean): Promise<boolean> {
+    // Resolve the thread from an authenticated mailbox-owned message, never
+    // from an arbitrary client-provided thread identifier.
+    const message = await this.env.DB.prepare(
+      "SELECT thread_id FROM messages WHERE id=?1 AND mailbox_id=?2"
+    ).bind(id, this.accountId).first<{ thread_id: string }>();
+    if (!message) return false;
+    const result = await this.env.DB.prepare(
+      "UPDATE messages SET is_deleted=?1 WHERE mailbox_id=?2 AND thread_id=?3"
+    ).bind(isDeleted ? 1 : 0, this.accountId, message.thread_id).run();
+    return Boolean(result.meta.changes);
+  }
+
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
     const transport = this.accountId === "native:primary" ? this.env.EMAIL : this.env.EMAIL_MULTI;
     const result = await transport.send({
