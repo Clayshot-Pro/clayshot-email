@@ -1,7 +1,7 @@
 import { primaryProfilePath, protectedAccountPath, requestedMailAccount } from "./accountAccess";
 import { adminProtectedApiPath } from "./adminRoutePolicy";
 import { adminMutationNeedsStepUp, consumeAdminApproval, isApprovedAdminMutation, stepUpOptions, stepUpVerify } from "./adminStepUp";
-import { listAdminSecurityEvents, pruneAdminSecurityEvents, tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
+import { adminMutationEvent, listAdminSecurityEvents, pruneAdminSecurityEvents, tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
 import { readOwnerSessionToken } from "./ownerSessionPolicy";
 import { beginAdminLogin, adminPasswordConfigured, saveAdminPassword } from "./adminAuth";
 import { reconcileMailboxUsage } from "./usage";
@@ -346,7 +346,16 @@ export default {
             .map(byte => byte.toString(16).padStart(2, "0")).join("");
         }
         const outcome = response.ok ? "success" : response.status === 401 || response.status === 403 ? "denied" : "failure";
-        await tryRecordAdminSecurityEvent(env, "admin.action." + request.method.toLowerCase(), outcome, actor, "operation", url.pathname);
+        // Paginated operations are one logical action: record completion and
+        // failures, not hundreds of indistinguishable intermediate chunks.
+        const paginated = /\\/(purge|reconcile)$/.test(url.pathname);
+        const page = paginated && response.ok
+          ? await response.clone().json().catch(() => null) as { complete?: boolean } | null
+          : null;
+        if (!paginated || !response.ok || page?.complete === true) {
+          await tryRecordAdminSecurityEvent(env, adminMutationEvent(request.method, url.pathname),
+            outcome, actor, "operation", url.pathname);
+        }
       }
       return secureApiResponse(response);
     }
