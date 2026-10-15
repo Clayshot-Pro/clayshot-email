@@ -232,6 +232,7 @@ export function App() {
   }, [folder, search, loadMessages, accountsLoaded, accounts, activeAccountId]);
 
   const openAddInbox = () => {
+    setError(null);
     setSettingsOpen(false);
     setAddInboxMode("choose");
   };
@@ -1019,6 +1020,7 @@ export function App() {
       <AddInboxModal
         mode={addInboxMode}
         connectingGmail={connectingGmail}
+        gmailError={addInboxMode === "choose" ? error : null}
         onClose={() => setAddInboxMode(null)}
         onBack={() => setAddInboxMode("choose")}
         onChooseCustom={() => setAddInboxMode("custom")}
