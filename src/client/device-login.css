@@ -1105,3 +1105,19 @@ a:focus-visible {
   .auth-brand-row .auth-logo { width: 50px; height: 50px; flex-basis: 50px; }
   .auth-brand-row .auth-heading h1 { font-size: 1.7rem; }
 }
+
+/* Keep Edit profile and Remove actions usable on narrow account rows. */
+.settings-account > .settings-account-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+@media (max-width: 520px) {
+  .settings-account { flex-wrap: wrap; }
+  .settings-account > .settings-account-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
