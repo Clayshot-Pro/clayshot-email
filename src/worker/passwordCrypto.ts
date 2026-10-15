@@ -1,4 +1,4 @@
-import { mailboxPasswordError } from "./mailboxPasswordPolicy";
+import { mailboxPasswordError } from "./mailboxPasswordPolicy.ts";
 
 const encoder = new TextEncoder();
 const ITERATIONS = 310_000;

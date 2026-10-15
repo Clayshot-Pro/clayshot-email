@@ -50,7 +50,7 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
     <form className="auth-setup" onSubmit={(event) => void addCustom(event)}>
       <label htmlFor="device-email">Email address</label>
       <input id="device-email" type="email" value={email} onChange={event => setEmail(event.target.value)}
-        placeholder="personal@liamthemo.com or admin@liamthemo.com" autoComplete="username" required maxLength={254} />
+        placeholder="example@liamthemo.com" autoComplete="username" required maxLength={254} />
       <label htmlFor="device-password">Mailbox password</label>
       <input id="device-password" type="password" value={password} onChange={event => setPassword(event.target.value)}
         autoComplete="current-password" minLength={16} required />
