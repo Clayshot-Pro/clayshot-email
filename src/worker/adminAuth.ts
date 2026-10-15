@@ -1,4 +1,5 @@
 import { checkPassword, preparePassword } from "./passwordCrypto";
+import { tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
 async function tokenHash(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,"0")).join("");
@@ -48,6 +49,7 @@ export async function beginAdminLogin(request: Request, env: Env): Promise<Respo
     return Response.json({error:"Administrator password setup required"}, {status:409});
   }
   if (email!==ADMIN_ADDRESS || !(await verifyAdminPassword(env,password))) {
+    await tryRecordAdminSecurityEvent(env, "admin.login.password", "denied");
     return Response.json({error:"Invalid credentials"},{status:401});
   }
   const bytes=crypto.getRandomValues(new Uint8Array(32));
@@ -56,6 +58,7 @@ export async function beginAdminLogin(request: Request, env: Env): Promise<Respo
   await env.DB.prepare(
     "INSERT INTO admin_login_pending(token_hash,expires_at) VALUES(?1,datetime('now','+5 minutes'))"
   ).bind(hash).run();
+  await tryRecordAdminSecurityEvent(env, "admin.login.password", "success");
   return Response.json({passkeyRequired:true},{
     headers:{
       "Cache-Control":"no-store",
