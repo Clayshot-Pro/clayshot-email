@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { requestedMailAccount, protectedAccountPath } from "../src/worker/accountAccess.ts";
+import { requestedMailAccount, protectedAccountPath, primaryProfilePath } from "../src/worker/accountAccess.ts";
 
 const destination = "https://email.liamthemo.com";
 const allowed = "native:allowed";
@@ -41,10 +41,14 @@ assert.equal(protectedAccountPath("/api/attachment-previews/one"),true);
 assert.equal(protectedAccountPath("/api/send"),true);
 assert.equal(protectedAccountPath("/api/mailboxes"),false);
 assert.equal(protectedAccountPath("/api/accounts"),false);
+assert.equal(primaryProfilePath("/api/profile"),true,"primary profile metadata requires a primary mailbox grant");
+assert.equal(primaryProfilePath("/api/profile/photo"),true,"primary photo reads and writes require a primary mailbox grant");
+assert.equal(primaryProfilePath("/api/accounts"),false,"normal account listing is not profile scoped");
+assert.equal(primaryProfilePath("/api/accounts/gmail:one/avatar"),false,"a Gmail avatar must not use the primary profile grant");
 const invalidForm=new URL("/api/send?accountId="+encodeURIComponent(allowed),destination);
 const malformed=await requestedMailAccount(new Request(invalidForm,{method:"POST",body:"not-formdata"}),invalidForm);
 assert.equal(malformed.accountId,null,"a query cannot authorize a malformed email body");
 const missing=new URL("/api/drafts?accountId="+encodeURIComponent(allowed),destination);
 const invalidDraft=await requestedMailAccount(new Request(missing,{method:"POST",body:"{bad"}),missing);
 assert.equal(invalidDraft.accountId,null,"a query cannot authorize a malformed draft body");
-console.log("PASS: sender/draft body-account isolation and contact-avatar authorization guard");
+console.log("PASS: mailbox authorization, sender/draft isolation and primary-profile route scoping");
