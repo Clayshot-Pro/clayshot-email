@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { adminMutationNeedsStepUp, isApprovedAdminMutation, hashMutationBody } from "../src/worker/adminStepUp.ts";
+import { adminMutationNeedsStepUp, isApprovedAdminMutation, hashMutationBody } from "../src/worker/adminStepUpPolicy.ts";
 import { adminMutationEvent } from "../src/worker/adminSecurityAudit.ts";
 
 for (const [method, path] of [
