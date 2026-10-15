@@ -32,8 +32,16 @@ export function AdminPanel() {
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({newPassword,currentPassword:configured?currentPassword:undefined}),
       });
-      const result=await response.json() as {error?:string};
-      if (!response.ok) throw new Error(result.error ?? "Unable to update administrator password");
+      // A Worker error may return HTML rather than JSON (for example, when
+      // the production D1 schema has not migrated). Avoid exposing Safari's
+      // misleading "string did not match the expected pattern" exception.
+      const contentType=response.headers.get("Content-Type")??"";
+      const result=contentType.includes("application/json")
+        ? await response.json() as {error?:string}
+        : null;
+      if (!response.ok) {
+        throw new Error(result?.error ?? `Unable to save the password (HTTP ${response.status}). Check Cloudflare Worker logs.`);
+      }
       setCurrentPassword("");setNewPassword("");setConfirmPassword("");
       // All prior owner sessions were invalidated by the credential update.
       window.location.assign("/");
@@ -59,6 +67,7 @@ export function AdminPanel() {
         <p>{configured
           ? "Changing this password signs out all administrator sessions. Your passkey remains required at the next sign-in."
           : "One-time setup: choose your administrator password. Your existing passkey remains the second factor."}</p>
+        <p>Special characters such as ? and ! are supported. Use at least 16 characters.</p>
         <form className="auth-setup admin-password-form" onSubmit={event=>void saveAdminPassword(event)}>
           {configured && <label htmlFor="admin-current-password">Current password
             <input id="admin-current-password" type="password" value={currentPassword}
@@ -66,11 +75,11 @@ export function AdminPanel() {
           </label>}
           <label htmlFor="admin-new-password">New password (16–128 characters)
             <input id="admin-new-password" type="password" value={newPassword}
-              onChange={event=>setNewPassword(event.target.value)} autoComplete="new-password" minLength={16} maxLength={128} required/>
+              onChange={event=>setNewPassword(event.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} minLength={16} maxLength={128} required/>
           </label>
           <label htmlFor="admin-confirm-password">Confirm new password
             <input id="admin-confirm-password" type="password" value={confirmPassword}
-              onChange={event=>setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={16} maxLength={128} required/>
+              onChange={event=>setConfirmPassword(event.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} minLength={16} maxLength={128} required/>
           </label>
           <button type="submit" className="settings-primary" disabled={busy||configured===null}>
             {busy?"Saving…":configured?"Change password and sign out":"Save admin password and sign out"}
