@@ -13,7 +13,7 @@ type Props = {
   activeAccountId: string;
   connectingGmail: boolean;
   onAccountChange: (id: string) => void;
-  onConnectGmail: () => void;
+  onAddInbox: () => void;
   onFolderChange: (folder: Folder) => void;
   onCompose: () => void;
   onToggleNotifications: () => void;
@@ -31,7 +31,7 @@ export function Sidebar({
   activeAccountId,
   connectingGmail,
   onAccountChange,
-  onConnectGmail,
+  onAddInbox,
   onFolderChange,
   onCompose,
   onToggleNotifications,
@@ -69,11 +69,9 @@ export function Sidebar({
             </button>
           ))}
         </div>
-        {!accounts.some((account) => account.provider === "gmail") ? (
-          <button className="desktop-add-account" type="button" disabled={connectingGmail} onClick={onConnectGmail}>
-            <Icon name="compose" size={14}/>{connectingGmail ? "Connecting…" : "Add Gmail"}
-          </button>
-        ) : null}
+        <button className="desktop-add-account" type="button" disabled={connectingGmail} onClick={onAddInbox}>
+          <Icon name="compose" size={14}/>{connectingGmail ? "Connecting…" : "Add Inbox"}
+        </button>
       </div>
 
       <nav className="folder-nav" aria-label="Mail folders">

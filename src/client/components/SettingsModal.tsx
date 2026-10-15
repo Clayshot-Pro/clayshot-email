@@ -11,9 +11,9 @@ type Props = {
   busy: string | null;
   onClose: () => void;
   isAdmin: boolean;
-  onAddCustom: () => void;
+
   onToggleNotifications: () => void;
-  onConnectGmail: () => void;
+  onAddInbox: () => void;
   onRemoveAccount: (id: string) => void;
   onEditProfile: () => void;
   onViewSessions: () => void;
@@ -95,16 +95,10 @@ export function SettingsModal(props: Props) {
               className="settings-primary"
               type="button"
               disabled={props.connectingGmail || props.busy !== null}
-              onClick={props.onConnectGmail}
+              onClick={props.onAddInbox}
             >
-              {props.connectingGmail ? "Connecting…" : "Add Gmail inbox"}
+              {props.connectingGmail ? "Connecting…" : "Add Inbox"}
             </button>
-          </section>
-
-          <section className="settings-section">
-            <h3>Add email account</h3>
-            <p>Accounts stay signed in on this device only. For administration, add `admin@liamthemo.com` as a custom sign-in; it opens a separate dashboard after password and passkey verification.</p>
-            <button className="settings-primary" type="button" onClick={props.onAddCustom}>Add custom email</button>
           </section>
 
           <section className="settings-section">
@@ -121,7 +115,7 @@ export function SettingsModal(props: Props) {
                 disabled={props.notificationsDisabled}
                 onClick={props.onToggleNotifications}
               >
-                {props.notificationState === "on" ? "Turn off" : "Turn on"}
+                {props.notificationState === "on" ? "Disable" : "Enable"}
               </button>
             </div>
           </section>

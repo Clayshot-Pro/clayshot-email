@@ -58,6 +58,9 @@ jobs:
 
       - name: Administrator layout regression
         run: node scripts/test-admin-layout.mjs
+
+      - name: Add Inbox and toggle label regression
+        run: node scripts/test-add-inbox-ui.mjs
  
       - name: Administrator password crypto regression
         run: node --experimental-strip-types scripts/test-password-crypto.mjs
