@@ -22,8 +22,8 @@ export function AdminPanel() {
   async function saveAdminPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (newPassword !== confirmPassword) {setError("Passwords do not match"); return;}
-    if (newPassword.length < 16 || newPassword.length > 128) {
-      setError("Choose a password between 16 and 128 characters"); return;
+    if (newPassword.length < 8 || newPassword.length > 32) {
+      setError("Choose a password between 8 and 32 characters"); return;
     }
     setError(""); setBusy(true);
     try {
@@ -73,13 +73,13 @@ export function AdminPanel() {
             <input id="admin-current-password" type="password" value={currentPassword}
               onChange={event=>setCurrentPassword(event.target.value)} autoComplete="current-password" required/>
           </label>}
-          <label htmlFor="admin-new-password">New password (16–128 characters)
+          <label htmlFor="admin-new-password">New password (8–32 characters)
             <input id="admin-new-password" type="password" value={newPassword}
-              onChange={event=>setNewPassword(event.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} minLength={16} maxLength={128} required/>
+              onChange={event=>setNewPassword(event.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} minLength={8} maxLength={32} required/>
           </label>
           <label htmlFor="admin-confirm-password">Confirm new password
             <input id="admin-confirm-password" type="password" value={confirmPassword}
-              onChange={event=>setConfirmPassword(event.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} minLength={16} maxLength={128} required/>
+              onChange={event=>setConfirmPassword(event.target.value)} autoComplete="new-password" autoCapitalize="none" spellCheck={false} minLength={8} maxLength={32} required/>
           </label>
           <button type="submit" className="settings-primary" disabled={busy||configured===null}>
             {busy?"Saving…":configured?"Change password and sign out":"Save admin password and sign out"}
