@@ -7,7 +7,7 @@ export async function getProfile(env: Env): Promise<Response> {
   return Response.json({
     hasPhoto: Boolean(object),
     version: object?.customMetadata?.uploadedAt ?? object?.etag ?? null,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function getProfilePhoto(env: Env): Promise<Response> {
@@ -17,7 +17,7 @@ export async function getProfilePhoto(env: Env): Promise<Response> {
   return new Response(object.body, {
     headers: {
       "Content-Type": object.httpMetadata?.contentType || "image/jpeg",
-      "Cache-Control": "private, max-age=300",
+      "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });

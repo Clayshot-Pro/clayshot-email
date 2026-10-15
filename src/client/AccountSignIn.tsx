@@ -6,6 +6,8 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState<"google" | "custom" | null>(null);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const isAdmin = email.trim().toLowerCase() === "admin@liamthemo.com";
 
   async function addGoogle() {
     setPending("google"); setError("");
@@ -24,7 +26,6 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
     event.preventDefault();
     setPending("custom"); setError("");
     try {
-      const isAdmin = email.trim().toLowerCase() === "admin@liamthemo.com";
       const response = await fetch(isAdmin ? "/api/admin/login/password" : "/api/device/login", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -44,21 +45,68 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
   }
 
   return <div className="account-signin">
-    {showGoogle && <button className="auth-primary" type="button" disabled={pending !== null}
-      onClick={() => void addGoogle()}>{pending === "google" ? "Connecting Google…" : "Continue with Google"}</button>}
-    {showGoogle && <div className="account-signin-divider"><span>or use a custom email</span></div>}
-    <form className="auth-setup" onSubmit={(event) => void addCustom(event)}>
-      <label htmlFor="device-email">Email address</label>
-      <input id="device-email" type="email" value={email} onChange={event => setEmail(event.target.value)}
-        placeholder="example@liamthemo.com" autoComplete="username" required maxLength={254} />
-      <label htmlFor="device-password">{email.trim().toLowerCase() === "admin@liamthemo.com" ? "Administrator password" : "Mailbox password"}</label>
-      <input id="device-password" type="password" value={password} onChange={event => setPassword(event.target.value)}
-        autoComplete="current-password" minLength={email.trim().toLowerCase() === "admin@liamthemo.com" ? 8 : 16}
-        maxLength={email.trim().toLowerCase() === "admin@liamthemo.com" ? 32 : 128} required />
-      <button className="auth-primary" type="submit" disabled={pending !== null}>
-        {pending === "custom" ? "Verifying sign-in…" : "Sign in"}
+    {showGoogle ? (
+      <button
+        className="signin-google-button"
+        type="button"
+        disabled={pending !== null}
+        onClick={() => void addGoogle()}
+      >
+        <span className="signin-google-mark" aria-hidden="true">G</span>
+        <span>{pending === "google" ? "Connecting to Google…" : "Continue with Google"}</span>
+      </button>
+    ) : null}
+    {showGoogle ? <div className="account-signin-divider"><span>or use a custom mailbox</span></div> : null}
+    <form className="auth-setup signin-email-form" onSubmit={(event) => void addCustom(event)}>
+      <div className="signin-form-heading">
+        <h2>{showGoogle ? "Email and password" : "Custom email account"}</h2>
+        <p>Enter the credentials for your mailbox.</p>
+      </div>
+      <div className="signin-field">
+        <label htmlFor="device-email">Email address</label>
+        <input
+          id="device-email"
+          type="email"
+          inputMode="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="name@liamthemo.com"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+          maxLength={254}
+        />
+      </div>
+      <div className="signin-field">
+        <label htmlFor="device-password">{isAdmin ? "Administrator password" : "Password"}</label>
+        <div className="signin-password-field">
+          <input
+            id="device-password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            minLength={isAdmin ? 8 : 16}
+            maxLength={isAdmin ? 32 : 128}
+            required
+          />
+          <button
+            type="button"
+            className="signin-show-password"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((current) => !current)}
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
+      </div>
+      {isAdmin ? <p className="signin-admin-note">Your registered passkey will be requested after your password.</p> : null}
+      <button className="auth-primary signin-submit" type="submit" disabled={pending !== null}>
+        {pending === "custom" ? "Verifying…" : "Sign in to mailbox"}
       </button>
     </form>
-    {error && <p className="auth-error" role="alert">{error}</p>}
+    {error ? <p className="auth-error" role="alert">{error}</p> : null}
   </div>;
 }

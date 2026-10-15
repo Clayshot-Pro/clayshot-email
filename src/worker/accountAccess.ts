@@ -1,3 +1,7 @@
+/** The stored sender photo belongs exclusively to the primary native mailbox. */
+export const primaryProfilePath = (pathname: string): boolean =>
+  pathname === "/api/profile" || pathname === "/api/profile/photo";
+
 /** Resolve the account a protected mail API request ACTUALLY operates on.
  *
  * A URL query must never authorize a different account supplied by the POST
