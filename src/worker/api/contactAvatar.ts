@@ -1,3 +1,4 @@
+import { deviceAuthorized } from "../deviceAuth";
 import { googleContactPhotoSources } from "../providers/googleContacts";
 import { getGoogleAccessToken } from "../providers/googleCredentials";
 import {
@@ -13,6 +14,7 @@ export async function getContactAvatar(request: Request, env: Env): Promise<Resp
   const accountId = url.searchParams.get("accountId") ?? "";
   const email = (url.searchParams.get("email") ?? "").trim().toLowerCase();
   if (!accountId.startsWith("gmail:") || !email || email.length > 320) return notFound();
+  if (!(await deviceAuthorized(request, env, accountId))) return notFound();
 
   try {
     const sources = await googleContactPhotoSources(env, accountId, [email]);

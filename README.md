@@ -82,6 +82,10 @@ scripts/                    build/asset and deployment helper scripts
 .github/workflows/          version-branch validation and security scanning
 ```
 
+## v2.07: Repository security optimization and audit
+
+This release closes cross-mailbox authorization gaps in sending and draft creation, restricts Gmail contact-avatar reads to an authenticated device, preserves attachment security policies, rate-limits OAuth initiation, and adds dependency security checks. See [security findings, remediations, and remaining production tasks](./docs/SECURITY_AUDIT_v2.07.md).
+
 ## v2.04: Consistent inbox theme and Cloudflare password fix
 
 The sign-in page, administrator dashboard, Settings, modals and mailbox forms now use shared inbox dark-brown/orange tokens (including the same amber button gradient used for Send). Administrator passwords are 8–32 characters; Worker-native PBKDF2 via `node:crypto` replaces the earlier production-capped WebCrypto implementation without changing stored PBKDF2-SHA256 hashes. See [admin setup](./docs/multi-mailbox/ADMIN_MFA.md).

@@ -1,7 +1,6 @@
 import { AccountSignIn } from "./AccountSignIn";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AUTO_REFRESH_MS,
   DETAIL_CACHE_MS,
   EMPTY_COMPOSE,
   FOLDERS,
@@ -217,10 +216,8 @@ export function App() {
         void loadMessages(folder, search, true);
       }
     };
-    const interval = setInterval(refresh, AUTO_REFRESH_MS);
     window.addEventListener("focus", refresh);
     return () => {
-      clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
   }, [folder, search, loadMessages, accountsLoaded, accounts, activeAccountId]);
