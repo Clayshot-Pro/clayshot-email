@@ -656,6 +656,28 @@ export function App() {
       !confirm("Delete " + count + " draft(s) permanently? This cannot be undone.")) return;
     setBulkBusy(true);
     setError(null);
+    const requestedIds = [...selectedMailIds];
+    const flags: MailMutationFlags =
+      action === "trash" ? { isDeleted: true } :
+      action === "restore" ? { isDeleted: false } :
+      action === "archive" ? { isArchived: true } :
+      action === "unarchive" ? { isArchived: false } :
+      action === "read" ? { isRead: true } :
+      action === "unread" ? { isRead: false } :
+      action === "junk" ? { isJunk: true } :
+      action === "notJunk" ? { isJunk: false } :
+      action === "star" ? { isStarred: true } :
+      action === "unstar" ? { isStarred: false } : {};
+    const hide = action === "permanent" || action === "deleteDraft";
+    for (const id of requestedIds) {
+      mutationShields.current.set(mailMutationKey(activeAccountId, id), {
+        flags,
+        hide,
+        updatedAt: Date.now(),
+      });
+    }
+    listRequest.current += 1;
+    setMessages(current => applyMailMutationShields(folder, activeAccountId, current, mutationShields.current));
     try {
       const response = await fetch(
         "/api/messages/bulk?accountId=" + encodeURIComponent(activeAccountId),
@@ -670,6 +692,9 @@ export function App() {
         failed?: Array<{id:string;error:string}>;
       };
       if (!response.ok && !result.succeeded?.length) throw new Error(result.error || result.failed?.[0]?.error || "Bulk action failed");
+      for (const failure of result.failed ?? []) {
+        mutationShields.current.delete(mailMutationKey(activeAccountId, failure.id));
+      }
       if (mailViewRef.current.accountId !== activeAccountId ||
           mailViewRef.current.folder !== folder || mailViewRef.current.search !== search) return;
       const successIds = new Set(result.succeeded ?? []);
@@ -687,6 +712,10 @@ export function App() {
         setError(result.failed.length + " message(s) could not be updated: " + result.failed[0].error);
       }
     } catch (cause) {
+      for (const id of requestedIds) mutationShields.current.delete(mailMutationKey(activeAccountId, id));
+      if (mailViewRef.current.accountId === activeAccountId && mailViewRef.current.folder === folder) {
+        void loadMessages(folder, search, true);
+      }
       setError(cause instanceof Error ? cause.message : "Bulk action failed");
     } finally {
       setBulkBusy(false);
