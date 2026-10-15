@@ -1,5 +1,6 @@
 import { sanitizeEmailHtml } from "../email/html";
 import { getGoogleAccessToken } from "./googleCredentials";
+import { gmailMatchesFolder } from "./gmailFolder";
 import type { MailProvider, ProviderListOptions, ProviderMessage, ProviderMutation, ProviderSendInput, ProviderSendResult } from "./types";
 
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -364,7 +365,7 @@ export function gmailProvider(env: Env, accountId: string, email: string): MailP
             accountId,
             `/messages/${encodeURIComponent(entry.id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject`,
           )).json<GmailMessage>();
-          return item(message);
+          return gmailMatchesFolder(message.labelIds, options.folder) ? item(message) : null;
         } catch {
           return null;
         }
@@ -410,6 +411,22 @@ export function gmailProvider(env: Env, accountId: string, email: string): MailP
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ addLabelIds: add, removeLabelIds: remove }),
       });
+      return true;
+    },
+
+    async patchThread(id, isDeleted: boolean) {
+      // The message lookup happens under this provider's already authorized
+      // Gmail account. Never accept an unchecked thread ID from a request.
+      const message = await (await call(
+        env, accountId,
+        "/messages/" + encodeURIComponent(id) + "?format=minimal",
+      )).json<GmailMessage>();
+      if (!message.threadId) return false;
+      await call(
+        env, accountId,
+        "/threads/" + encodeURIComponent(message.threadId) + "/" + (isDeleted ? "trash" : "untrash"),
+        { method: "POST" },
+      );
       return true;
     },
 

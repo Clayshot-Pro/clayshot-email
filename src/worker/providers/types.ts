@@ -66,5 +66,6 @@ export interface MailProvider {
   listMessages(options: ProviderListOptions): Promise<ProviderMessage[]>;
   getMessage(id: string): Promise<ProviderMessage | null>;
   patchMessage(id: string, mutation: ProviderMutation): Promise<boolean>;
+  patchThread(id: string, isDeleted: boolean): Promise<boolean>;
   sendMessage(input: ProviderSendInput): Promise<ProviderSendResult>;
 }
