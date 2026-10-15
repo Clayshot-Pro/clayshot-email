@@ -14,7 +14,6 @@ const ACTIONS = {
   junk: { isJunk: true },
   notJunk: { isJunk: false },
 } satisfies Record<string, ProviderMutation>;
-type MailAction = keyof typeof ACTIONS | "permanent" | "deleteDraft";
 
 const errorResponse = (message: string, status: number) => Response.json({ error: message }, { status });
 
