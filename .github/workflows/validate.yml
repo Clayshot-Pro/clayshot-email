@@ -53,6 +53,9 @@ jobs:
       - name: Mailbox rules and Junk heuristic tests
         run: node --experimental-strip-types scripts/test-mailbox-rules.mjs
 
+      - name: Mailbox deletion consistency regression
+        run: node --experimental-strip-types scripts/test-mail-mutation-shields.mjs
+
       - name: Administrator layout regression
         run: node scripts/test-admin-layout.mjs
  
