@@ -603,7 +603,7 @@ export function App() {
   const toggleMailSelection = (id: string) => {
     setSelectedMailIds((current) => current.includes(id)
       ? current.filter((value) => value !== id)
-      : [...current, id]);
+      : current.length < 50 ? [...current, id] : current);
   };
 
   const toggleAllMailSelection = (ids: string[]) => {
@@ -611,7 +611,7 @@ export function App() {
       const allSelected = ids.length > 0 && ids.every((id) => current.includes(id));
       return allSelected
         ? current.filter((id) => !ids.includes(id))
-        : [...new Set([...current, ...ids])];
+        : [...new Set([...current, ...ids])].slice(0, 50);
     });
   };
 
