@@ -229,13 +229,13 @@ export function MailList({
                 <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("restore")}>Restore</button>
                 {canPermanentlyDelete ? (
                   <button className="mail-danger-action" type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("permanent")}>Delete forever</button>
-                ) : <span className="mail-bulk-note" title="Google mail deletion requires additional Gmail permissions">Permanent deletion in Gmail</span>}
+                ) : <span className="mail-bulk-note" title="Google mail deletion requires additional Gmail permissions">Delete forever in Gmail app</span>}
               </>
             ) : folder === "drafts" ? (
               <button className="mail-danger-action" type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("deleteDraft")}>Delete drafts</button>
             ) : (
               <>
-                <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction(folder === "archive" ? "unarchive" : "archive")}>{folder === "archive" ? "Unarchive" : "Archive"}</button>
+                {folder === "junk" ? <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("notJunk")}>Not junk</button> : folder !== "sent" ? <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction(folder === "archive" ? "unarchive" : "archive")}>{folder === "archive" ? "Unarchive" : "Archive"}</button> : null}
                 <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("read")}>Mark read</button>
                 <button className="mail-danger-action" type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("trash")}>Delete</button>
               </>
