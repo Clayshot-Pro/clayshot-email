@@ -1175,3 +1175,83 @@ a:focus-visible {
   .mail-bulk-actions { flex: 1 1 auto; }
   .mail-bulk-bar .mail-select-cancel { margin-left: auto; }
 }
+
+
+/* Shared Add Inbox flow for desktop sidebar, mobile account bar, and Settings. */
+.add-inbox-modal { width: min(480px, 100%); max-width: 480px; }
+.add-inbox-scroll { padding-top: 20px; }
+.add-inbox-intro {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.add-inbox-options { display: grid; gap: 10px; margin: 0 0 12px; }
+.add-inbox-option {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 14px;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: var(--panel-raised);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.add-inbox-option:hover:not(:disabled),
+.add-inbox-option:focus-visible {
+  border-color: var(--accent);
+  background: var(--ui-control-hover);
+}
+.add-inbox-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.add-inbox-option:disabled { opacity: .55; cursor: not-allowed; }
+.add-inbox-option-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ui-focus-border);
+  border-radius: 11px;
+  background: var(--ui-control);
+  color: var(--accent-2);
+}
+.add-inbox-option-icon.add-inbox-google {
+  background: #f7f4f0;
+  border-color: #bfb0a4;
+  color: #4285f4;
+  font-size: 23px;
+  font-weight: 760;
+}
+.add-inbox-option-copy { min-width: 0; display: grid; gap: 4px; }
+.add-inbox-option-copy strong { font-size: 13px; font-weight: 760; }
+.add-inbox-option-copy small { color: var(--muted); font-size: 11px; font-weight: 450; line-height: 1.55; }
+.add-inbox-option-arrow { justify-self: end; font-size: 25px; color: var(--accent-2); }
+.add-inbox-feedback { margin: 8px 0 0; font-size: 11px; color: var(--muted); }
+.add-inbox-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 14px;
+  padding: 6px 3px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-2);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 680;
+}
+.add-inbox-back:hover { color: var(--accent); }
+@media (max-width: 760px) {
+  .add-inbox-modal { width: 100%; max-width: none; }
+  .add-inbox-scroll { padding-top: 15px; }
+  .add-inbox-option { grid-template-columns: 38px minmax(0, 1fr) 16px; gap: 10px; padding: 13px 11px; }
+  .add-inbox-option-icon { width: 38px; height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .add-inbox-option { transition: none; }
+}
