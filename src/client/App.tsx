@@ -600,6 +600,90 @@ export function App() {
     }
   };
 
+  const toggleMailSelection = (id: string) => {
+    setSelectedMailIds((current) => current.includes(id)
+      ? current.filter((value) => value !== id)
+      : [...current, id]);
+  };
+
+  const toggleAllMailSelection = (ids: string[]) => {
+    setSelectedMailIds((current) => {
+      const allSelected = ids.length > 0 && ids.every((id) => current.includes(id));
+      return allSelected
+        ? current.filter((id) => !ids.includes(id))
+        : [...new Set([...current, ...ids])];
+    });
+  };
+
+  const performBulkAction = async (action: string) => {
+    if (bulkBusy || selectedMailIds.length === 0) return;
+    const count = selectedMailIds.length;
+    if (action === "permanent" &&
+      !confirm("Permanently delete " + count + " message(s)? This cannot be undone.")) return;
+    if (action === "deleteDraft" &&
+      !confirm("Delete " + count + " draft(s) permanently? This cannot be undone.")) return;
+    setBulkBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        "/api/messages/bulk?accountId=" + encodeURIComponent(activeAccountId),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: selectedMailIds, action }),
+        },
+      );
+      const result = await response.json() as {
+        error?: string; succeeded?: string[];
+        failed?: Array<{id:string;error:string}>;
+      };
+      if (!response.ok && !result.succeeded?.length) throw new Error(result.error || result.failed?.[0]?.error || "Bulk action failed");
+      const successIds = new Set(result.succeeded ?? []);
+      for (const id of successIds) detailCache.current.delete(detailCacheKey(id));
+      if (selected && successIds.has(selected.id)) {
+        openRequest.current += 1;
+        setSelected(null);
+        setThread([]);
+        setOpeningMessageId(null);
+      }
+      setSelectedMailIds(result.failed?.map((failure) => failure.id) ?? []);
+      if (!result.failed?.length) setSelectionMode(false);
+      await loadMessages(folder, search, true);
+      if (result.failed?.length) {
+        setError(result.failed.length + " message(s) could not be updated: " + result.failed[0].error);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Bulk action failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const permanentlyDeleteSelected = async () => {
+    if (!selected || activeAccountId.startsWith("gmail:")) return;
+    if (!confirm("Permanently delete this message? This cannot be undone.")) return;
+    const id = selected.id;
+    setError(null);
+    try {
+      const response = await fetch(
+        "/api/messages/" + encodeURIComponent(id) + "?accountId=" + encodeURIComponent(activeAccountId),
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as {error?:string};
+        throw new Error(data.error || "Could not delete permanently");
+      }
+      openRequest.current += 1;
+      setSelected(null);
+      setThread([]);
+      setOpeningMessageId(null);
+      detailCache.current.delete(detailCacheKey(id));
+      await loadMessages(folder, search, true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not delete permanently");
+    }
+  };
+
   const startCompose = () => {
     const draftId = crypto.randomUUID();
     setCompose({ ...EMPTY_COMPOSE, draftId });
