@@ -69,7 +69,7 @@ export async function previewAttachment(
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+      "Content-Security-Policy": "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'",
     },
   });
 }
