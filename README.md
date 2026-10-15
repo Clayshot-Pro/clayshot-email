@@ -82,6 +82,10 @@ scripts/                    build/asset and deployment helper scripts
 .github/workflows/          version-branch validation and security scanning
 ```
 
+## v2.04: Consistent inbox theme and Cloudflare password fix
+
+The sign-in page, administrator dashboard, Settings, modals and mailbox forms now use shared inbox dark-brown/orange tokens (including the same amber button gradient used for Send). Administrator passwords are 8–32 characters; Worker-native PBKDF2 via `node:crypto` replaces the earlier production-capped WebCrypto implementation without changing stored PBKDF2-SHA256 hashes. See [admin setup](./docs/multi-mailbox/ADMIN_MFA.md).
+
 ## v2.02: Reserved admin login with mandatory 2FA
 
 Sign in as **`admin@liamthemo.com`** using an administrator password followed by the existing owner passkey. Successful login opens a standalone administration dashboard instead of the mail inbox. The administrator can choose passwords for individual mailboxes or generate replacements; both operations revoke the affected mailbox's saved device sessions. Initial admin password setup uses the existing passkey, then disables passkey-only access. [Administrator setup and MFA security](./docs/multi-mailbox/ADMIN_MFA.md).
