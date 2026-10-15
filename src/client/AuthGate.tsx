@@ -72,15 +72,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (device?.isAdmin) return <AdminPanel />;
   if (device?.authenticated && device.accountCount > 0) return <>{children}</>;
   return <main className="auth-shell">
-    <section className="auth-card" aria-live="polite">
-      <img className="auth-logo" src="/apple-touch-icon.png" alt="" width="72" height="72" />
-      <div className="auth-heading">
-        <p className="auth-eyebrow">Your mail on this device</p>
-        <h1>LTM Mails</h1>
-        <p>Sign in to a saved email account. Use admin@liamthemo.com with your password and passkey for administration.</p>
+    <section className="auth-card" aria-labelledby="auth-title">
+      <div className="auth-brand-row">
+        <img className="auth-logo" src="/apple-touch-icon.png" alt="" width="64" height="64" />
+        <div className="auth-heading">
+          <p className="auth-eyebrow">Private email</p>
+          <h1 id="auth-title">LTM Mails</h1>
+        </div>
       </div>
-      {!device || !owner ? <div className="auth-state">Checking saved sessions…</div> : <>
+      <p className="auth-intro">Welcome back. Sign in to access your inbox on this device.</p>
+      {!device || !owner ? <div className="auth-state" role="status">Checking saved sessions…</div> : <>
         <AccountSignIn onSignedIn={() => void refresh()} />
+        {owner.configured && owner.adminPasswordConfigured ? (
+          <details className="auth-admin-help">
+            <summary>Administrator access</summary>
+            <p>Enter admin@liamthemo.com above, then verify with your registered passkey to manage mailboxes.</p>
+          </details>
+        ) : null}
         {!owner.adminPasswordConfigured && <div className="account-signin-divider"><span>Administrator setup</span></div>}
         {owner.configured && !owner.adminPasswordConfigured ? (
           <button className="auth-secondary" disabled={busy} type="button" onClick={() => void adminLogin()}>
