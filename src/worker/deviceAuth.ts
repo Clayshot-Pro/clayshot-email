@@ -19,11 +19,6 @@ function b64url(bytes: Uint8Array): string {
   for (const byte of bytes) text += String.fromCharCode(byte);
   return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
-function unbase64url(text: string): Uint8Array<ArrayBuffer> {
-  const normalized = text.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(normalized + "=".repeat((4 - normalized.length % 4) % 4));
-  return Uint8Array.from(binary, character => character.charCodeAt(0));
-}
 function token(bytes = 32): string { return b64url(crypto.getRandomValues(new Uint8Array(bytes))); }
 export async function tokenHash(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", utf8.encode(value));
