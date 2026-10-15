@@ -9,8 +9,8 @@ const settings = read("src/client/components/SettingsModal.tsx");
 const dialog = read("src/client/components/AddInboxModal.tsx");
 const labels = read("src/client/mailUtils.ts");
 
-assert.equal((app.match(/onAddInbox={openAddInbox}/g) ?? []).length, 2,
-  "Desktop and mobile should share the same Add Inbox handler");
+assert.equal((app.match(/onAddInbox={openAddInbox}/g) ?? []).length, 3,
+  "Desktop, mobile and Settings should share the same Add Inbox handler");
 assert.match(app, /onAddInbox={openAddInbox}/);
 assert.match(app, /<AddInboxModal/);
 assert.match(app, /onChooseCustom={\(\) => setAddInboxMode\("custom"\)}/);
