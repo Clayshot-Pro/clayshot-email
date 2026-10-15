@@ -60,7 +60,11 @@ function requestTooLarge(request: Request): boolean {
 function secureApiResponse(response: Response): Response {
   const headers = new Headers(response.headers);
   headers.set("Cache-Control", "private, no-store");
-  headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  // Preserve stricter endpoint-specific CSP directives (e.g. the "sandbox"
+  // directive for attachments) instead of overwriting them.
+  if (!headers.has("Content-Security-Policy")) {
+    headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+  }
   headers.set("Referrer-Policy", "no-referrer");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
