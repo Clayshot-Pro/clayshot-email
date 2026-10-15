@@ -1121,3 +1121,71 @@ a:focus-visible {
     justify-content: flex-end;
   }
 }
+
+
+/* Multi-select mail controls follow the existing deep-brown and amber palette. */
+.mail-bulk-bar {
+  min-width: 0;
+  min-height: 37px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--panel-soft);
+}
+.mail-bulk-bar button {
+  min-height: 29px;
+  padding: 5px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--ui-control);
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 690;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mail-bulk-bar button:hover:not(:disabled) {
+  border-color: var(--ui-focus-border);
+  background: var(--ui-control-hover);
+}
+.mail-bulk-bar button:disabled { opacity: .45; cursor: not-allowed; }
+.mail-bulk-bar .mail-select-toggle { margin-left: auto; }
+.mail-bulk-bar .mail-select-cancel { margin-left: auto; }
+.mail-select-all { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; }
+.mail-selection-count { font-size: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mail-bulk-actions { min-width: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.mail-bulk-bar .mail-danger-action { border-color: #743c30; color: #ff9d88; background: #261915; }
+.mail-bulk-bar .mail-danger-action:hover:not(:disabled) { border-color: #ad5943; background: #33211c; }
+.mail-bulk-note { font-size: 10px; color: var(--muted); line-height: 1.4; }
+.mail-select-checkbox,
+.mail-select-all input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.mail-selection-row { min-width: 0; }
+.mail-selection-row.selection-active {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px;
+}
+.mail-selection-row.selection-active .mail-select-checkbox { justify-self: center; }
+.mail-selection-row .mail-row { min-width: 0; }
+@media (min-width: 761px) {
+  .desktop-topbar {
+    grid-template-columns: minmax(160px, 1fr) minmax(230px, 860px) minmax(160px, 1fr);
+  }
+  .topbar-search { width: 100%; max-width: 860px; }
+}
+@media (max-width: 760px) {
+  .mail-bulk-bar { padding: 6px 11px; flex-wrap: wrap; }
+  .mail-bulk-actions { flex: 1 1 auto; }
+  .mail-bulk-bar .mail-select-cancel { margin-left: auto; }
+}
