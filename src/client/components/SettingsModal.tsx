@@ -131,7 +131,8 @@ export function SettingsModal(props: Props) {
 
           <section className="settings-section">
             <h3>Security &amp; sessions</h3>
-            {props.isAdmin ? <>\n            <div className="settings-row">
+            {props.isAdmin ? (
+              <>            <div className="settings-row">
               <div>
                 <strong>Passkeys</strong>
                 <small>Passkey creation is disabled after initial setup.</small>
@@ -164,7 +165,9 @@ export function SettingsModal(props: Props) {
                 </button>
               </div>
             </div>
-            </> : null}\n            <div className="settings-row danger">
+            </>
+            ) : null}
+            <div className="settings-row danger">
               <div>
                 <strong>Log out</strong>
                 <small>Sign out all email accounts on this device. Other devices stay signed in.</small>
