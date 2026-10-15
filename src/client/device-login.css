@@ -900,3 +900,58 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .admin-home { scroll-behavior: auto; }
 }
+
+/* Refinements for paired creation fields and progressive actions. */
+.admin-mailbox-create .mailbox-create-form > label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.admin-field-optional { color: var(--muted-2); font-weight: 500; }
+.admin-mailbox-more {
+  width: 100%;
+  min-width: 0;
+}
+.admin-mailbox-more > summary {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 33px;
+  align-items: center;
+  cursor: pointer;
+  color: var(--accent-2);
+  font-size: 11px;
+  font-weight: 650;
+  list-style: none;
+  padding: 6px 4px;
+}
+.admin-mailbox-more > summary::-webkit-details-marker { display: none; }
+.admin-mailbox-more > summary::after {
+  content: "⌄";
+  padding-left: 8px;
+  font-size: 15px;
+}
+.admin-mailbox-more[open] > summary::after { transform: rotate(180deg); }
+.admin-mailbox-more-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.admin-home .admin-mailbox-item .mailbox-password-form {
+  width: 100%;
+  max-width: 430px;
+  margin-top: 12px;
+}
+.admin-home .admin-mailbox-item .mailbox-password-form .settings-primary {
+  width: fit-content;
+  min-height: 38px;
+}
+@media (max-width: 520px) {
+  .admin-home .admin-mailbox-item .mailbox-password-form .settings-primary { width: 100%; }
+}
