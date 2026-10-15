@@ -408,7 +408,7 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
     right: 14px;
     height: 58px;
     display: grid;
-    grid-template-columns: 330px minmax(360px, 660px) minmax(260px, 1fr);
+    grid-template-columns: minmax(165px, 1fr) minmax(410px, 860px) minmax(165px, 1fr);
     align-items: center;
     gap: 20px;
     padding: 0 15px;

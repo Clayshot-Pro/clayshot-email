@@ -83,12 +83,6 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <p className="auth-intro">Welcome back. Sign in to access your inbox on this device.</p>
       {!device || !owner ? <div className="auth-state" role="status">Checking saved sessions…</div> : <>
         <AccountSignIn onSignedIn={() => void refresh()} />
-        {owner.configured && owner.adminPasswordConfigured ? (
-          <details className="auth-admin-help">
-            <summary>Administrator access</summary>
-            <p>Enter admin@liamthemo.com above, then verify with your registered passkey to manage mailboxes.</p>
-          </details>
-        ) : null}
         {!owner.adminPasswordConfigured && <div className="account-signin-divider"><span>Administrator setup</span></div>}
         {owner.configured && !owner.adminPasswordConfigured ? (
           <button className="auth-secondary" disabled={busy} type="button" onClick={() => void adminLogin()}>
