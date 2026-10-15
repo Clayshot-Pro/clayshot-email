@@ -40,7 +40,7 @@ export function AdminPanel() {
         ? await response.json() as {error?:string}
         : null;
       if (!response.ok) {
-        throw new Error(result?.error ?? `Unable to save the password (HTTP ${response.status}). Check Cloudflare Worker logs.`);
+        throw new Error(result?.error ?? `Unable to save the administrator password (HTTP ${response.status}). Please try again.`);
       }
       setCurrentPassword("");setNewPassword("");setConfirmPassword("");
       // All prior owner sessions were invalidated by the credential update.
