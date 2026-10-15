@@ -10,3 +10,14 @@ export function mailboxPasswordError(password: unknown): string | null {
   if (new Set(password).size < 5) return "Use a less repetitive password";
   return null;
 }
+
+/** Admin has separate 8–32 character limits; mailbox passwords stay 16–128. */
+export function adminPasswordError(password: unknown): string | null {
+  if (typeof password !== "string") return "Enter an administrator password";
+  if (password.length < 8) return "Use at least 8 characters";
+  if (password.length > 32) return "Use at most 32 characters";
+  if (password !== password.trim()) return "Remove leading or trailing spaces";
+  if (/[\u0000-\u001f\u007f]/.test(password)) return "Remove control characters";
+  if (new Set(password).size < 5) return "Use a less repetitive password";
+  return null;
+}

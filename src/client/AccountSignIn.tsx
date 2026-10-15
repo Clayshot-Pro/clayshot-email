@@ -51,9 +51,10 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
       <label htmlFor="device-email">Email address</label>
       <input id="device-email" type="email" value={email} onChange={event => setEmail(event.target.value)}
         placeholder="example@liamthemo.com" autoComplete="username" required maxLength={254} />
-      <label htmlFor="device-password">Mailbox password</label>
+      <label htmlFor="device-password">{email.trim().toLowerCase() === "admin@liamthemo.com" ? "Administrator password" : "Mailbox password"}</label>
       <input id="device-password" type="password" value={password} onChange={event => setPassword(event.target.value)}
-        autoComplete="current-password" minLength={16} required />
+        autoComplete="current-password" minLength={email.trim().toLowerCase() === "admin@liamthemo.com" ? 8 : 16}
+        maxLength={email.trim().toLowerCase() === "admin@liamthemo.com" ? 32 : 128} required />
       <button className="auth-primary" type="submit" disabled={pending !== null}>
         {pending === "custom" ? "Verifying sign-in…" : "Sign in"}
       </button>

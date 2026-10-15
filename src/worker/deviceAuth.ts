@@ -1,4 +1,5 @@
 import { mailboxPasswordError } from "./mailboxPasswordPolicy";
+import { hashPassword } from "./passwordCrypto";
 import { isAuthenticated, logout as ownerLogout } from "./auth";
 import { normalizeMailboxAddress } from "./mailboxRules";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
@@ -17,11 +18,6 @@ function b64url(bytes: Uint8Array): string {
   let text = "";
   for (const byte of bytes) text += String.fromCharCode(byte);
   return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-function unbase64url(text: string): Uint8Array<ArrayBuffer> {
-  const normalized = text.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(normalized + "=".repeat((4 - normalized.length % 4) % 4));
-  return Uint8Array.from(binary, character => character.charCodeAt(0));
 }
 function token(bytes = 32): string { return b64url(crypto.getRandomValues(new Uint8Array(bytes))); }
 export async function tokenHash(value: string): Promise<string> {
@@ -52,11 +48,9 @@ export async function oauthNonceMatches(request: Request, hash: string | null): 
 }
 
 async function derivePassword(password: string, salt: string, iterations = PASSWORD_ITERATIONS): Promise<string> {
-  const key = await crypto.subtle.importKey("raw", utf8.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const digest = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt: unbase64url(salt), iterations }, key, 256
-  );
-  return b64url(new Uint8Array(digest));
+  // Keep native mailbox passwords compatible with existing PBKDF2-SHA256 hashes.
+  // Use Worker-supported node:crypto rather than production-capped WebCrypto.
+  return hashPassword(password, salt, iterations);
 }
 function equalHash(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
