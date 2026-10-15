@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const css = readFileSync("src/client/device-login.css", "utf8");
+const admin = readFileSync("src/client/components/AdminPanel.tsx", "utf8");
+const mailbox = readFileSync("src/client/components/MailboxManager.tsx", "utf8");
+const viewportRules = css.match(/\/\* v2\.06 — A self-scrolling administrator workspace\.[\s\S]*?\.admin-home\s*\{([^}]+)\}/);
+assert.ok(viewportRules, "Missing explicit v2.06 administrator viewport");
+assert.match(viewportRules[1], /height:\s*100dvh\s*;/);
+assert.match(viewportRules[1], /overflow-y:\s*auto\s*;/);
+assert.match(viewportRules[1], /-webkit-overflow-scrolling:\s*touch\s*;/);
+assert.match(css, /@media\s*\(max-width:\s*520px\)/);
+assert.match(admin, /className="admin-home"/);
+assert.match(admin, /className="admin-home-nav"/);
+assert.match(admin, /href="#admin-mailboxes"/);
+assert.match(admin, /href="#admin-security"/);
+assert.match(mailbox, /id="admin-mailboxes"/);
+assert.match(mailbox, /admin-mailbox-more/);
+assert.match(mailbox, /admin-mailbox-stats/);
+assert.match(admin, /minLength=\{8\} maxLength=\{32\}/);
+console.log("PASS: admin scrolling, navigation, mobile layout hooks and mailbox controls");

@@ -46,6 +46,9 @@ jobs:
 
       - name: Mailbox rules and Junk heuristic tests
         run: node --experimental-strip-types scripts/test-mailbox-rules.mjs
+
+      - name: Administrator layout regression
+        run: node scripts/test-admin-layout.mjs
  
       - name: Administrator password crypto regression
         run: node --experimental-strip-types scripts/test-password-crypto.mjs
