@@ -1,5 +1,5 @@
 import { mailboxPasswordError } from "./mailboxPasswordPolicy";
-import { hashPassword } from "./passwordCrypto";
+import { preparePassword, checkPassword } from "./passwordCrypto";
 import { isAuthenticated, logout as ownerLogout } from "./auth";
 import { normalizeMailboxAddress } from "./mailboxRules";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
@@ -7,7 +7,6 @@ import { checkAuthRateLimit, authRateLimitBucket } from "./security";
 const DEVICE_COOKIE = "__Host-ltm_device";
 const OAUTH_COOKIE = "__Host-ltm_oauth";
 const DEVICE_LIFETIME = 60 * 60 * 24 * 30;
-const PASSWORD_ITERATIONS = 310_000;
 const utf8 = new TextEncoder();
 const jsonError = (error: string, status: number) => Response.json({ error }, { status });
 
@@ -47,22 +46,12 @@ export async function oauthNonceMatches(request: Request, hash: string | null): 
   return Boolean(hash && nonce && /^[\w-]{30,100}$/.test(nonce) && await tokenHash(nonce) === hash);
 }
 
-async function derivePassword(password: string, salt: string, iterations = PASSWORD_ITERATIONS): Promise<string> {
-  // Keep native mailbox passwords compatible with existing PBKDF2-SHA256 hashes.
-  // Use Worker-supported node:crypto rather than production-capped WebCrypto.
-  return hashPassword(password, salt, iterations);
-}
-function equalHash(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-export async function credentialForMailbox(_id: string, password: string): Promise<{ salt: string; hash: string; iterations: number }> {
+export async function credentialForMailbox(_id: string, password: string): Promise<{
+  salt: string; hash: string; iterations: number;
+}> {
   const invalid = mailboxPasswordError(password);
   if (invalid) throw new Error(invalid);
-  const salt = token(24);
-  return { salt, hash: await derivePassword(password, salt), iterations: PASSWORD_ITERATIONS };
+  return preparePassword(password, "mailbox");
 }
 export async function setMailboxPassword(env: Env, id: string, password: string): Promise<void> {
   const invalid = mailboxPasswordError(password);
@@ -93,10 +82,9 @@ async function checkNativePassword(env: Env, address: string, password: string):
     FROM native_mailboxes m JOIN native_mailbox_credentials c ON c.mailbox_id=m.id
     WHERE m.email_address=?1 AND m.status='active' AND m.deleted_at IS NULL`)
     .bind(normalized).first<{id:string;password_salt:string;password_hash:string;iterations:number}>() : null;
-  // Perform a derivation even for unknown users to reduce enumeration signals.
-  const salt = record?.password_salt ?? "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-  const actual = await derivePassword(password, salt, record?.iterations ?? PASSWORD_ITERATIONS);
-  return record && equalHash(actual, record.password_hash) ? record.id : null;
+  // The saved iterations value versions the hash. Existing positive values
+  // continue through the legacy PBKDF2 verification path.
+  return await checkPassword(password, record) ? record!.id : null;
 }
 export async function currentDeviceSession(request: Request, env: Env): Promise<DeviceSessionRow | null> {
   const t = readCookie(request, DEVICE_COOKIE);

@@ -49,3 +49,14 @@ jobs:
  
       - name: Administrator password crypto regression
         run: node --experimental-strip-types scripts/test-password-crypto.mjs
+      
+      - name: Cloudflare Workers password-runtime integration
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/wrangler dev --config scripts/password-runtime.wrangler.jsonc --local --port 8789 --ip 127.0.0.1 > /tmp/password-runtime.log 2>&1 &
+          RUNTIME_PID=$!
+          trap 'kill "$RUNTIME_PID" 2>/dev/null || true' EXIT
+          if ! node scripts/test-worker-password-runtime.mjs; then
+            cat /tmp/password-runtime.log
+            exit 1
+          fi

@@ -135,7 +135,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
       // when storage or password hashing fails so mobile browsers get an
       // actionable message rather than an opaque DOM/SyntaxError.
       console.error("Administrator password save failed", error instanceof Error ? error.name : "unknown");
-      return jsonError("Unable to save administrator password. Check the Cloudflare D1 migration and Worker logs.", 503);
+      return jsonError("Password setup is temporarily unavailable (ADMIN_SETUP_FAILED). Please try again.", 503);
     }
   }
   if (url.pathname === "/api/admin/status" && request.method === "GET") {
