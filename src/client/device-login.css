@@ -1255,3 +1255,38 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .add-inbox-option { transition: none; }
 }
+
+
+/* Administrator security activity: privacy-preserving, scrollable event ledger. */
+.admin-audit-panel .admin-section-heading > button { align-self: flex-start; }
+.admin-audit-list {
+  display: grid;
+  gap: 7px;
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 16px;
+  padding-right: 3px;
+}
+.admin-audit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-raised);
+}
+.admin-audit-row > div { min-width: 0; display: grid; gap: 5px; }
+.admin-audit-row strong { color: var(--text); font-size: 11px; font-weight: 700; text-transform: capitalize; }
+.admin-audit-row small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.admin-audit-outcome { flex: 0 0 auto; font-size: 10px; font-weight: 700; text-transform: capitalize; }
+.admin-audit-success { color: #b9e4b1; }
+.admin-audit-denied, .admin-audit-failure { color: var(--danger); }
+.admin-audit-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+@media (max-width: 520px) {
+  .admin-audit-list { max-height: 320px; }
+  .admin-audit-row { padding: 10px; }
+  .admin-audit-panel .admin-section-heading { flex-wrap: wrap; }
+}
