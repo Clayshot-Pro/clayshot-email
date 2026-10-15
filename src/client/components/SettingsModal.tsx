@@ -74,23 +74,19 @@ export function SettingsModal(props: Props) {
                       {account.emailAddress}
                     </small>
                   </div>
-                  {account.id === "native:primary" ? (
-                    <button
-                      type="button"
-                      disabled={props.busy !== null}
-                      onClick={props.onEditProfile}
-                    >
-                      Edit profile
-                    </button>
-                  ) : null}
-                  {(account.provider === "gmail" || !props.isAdmin) ? (
-                    <button
-                      type="button"
-                      disabled={props.busy !== null}
-                      onClick={() => props.onRemoveAccount(account.id)}
-                    >
-                      Remove
-                    </button>
+                  {(account.id === "native:primary" || account.provider === "gmail" || !props.isAdmin) ? (
+                    <div className="settings-account-actions">
+                      {account.id === "native:primary" ? (
+                        <button type="button" disabled={props.busy !== null} onClick={props.onEditProfile}>
+                          Edit profile
+                        </button>
+                      ) : null}
+                      {(account.provider === "gmail" || !props.isAdmin) ? (
+                        <button type="button" disabled={props.busy !== null} onClick={() => props.onRemoveAccount(account.id)}>
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               ))}
