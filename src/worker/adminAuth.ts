@@ -3,7 +3,7 @@ async function tokenHash(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,"0")).join("");
 }
-import { mailboxPasswordError } from "./mailboxPasswordPolicy";
+import { adminPasswordError } from "./mailboxPasswordPolicy";
 
 const COOKIE = "__Host-ltm_admin_pending";
 const AGE = 5 * 60;
@@ -64,7 +64,7 @@ export async function beginAdminLogin(request: Request, env: Env): Promise<Respo
   });
 }
 export async function saveAdminPassword(env: Env,newPassword: unknown,currentPassword?:unknown): Promise<{error?:string}> {
-  const invalid=mailboxPasswordError(newPassword);
+  const invalid=adminPasswordError(newPassword);
   if (invalid) return {error:invalid};
   const existing=await adminPasswordConfigured(env);
   if (existing) {
@@ -73,7 +73,7 @@ export async function saveAdminPassword(env: Env,newPassword: unknown,currentPas
     }
     if (currentPassword===newPassword) return {error:"Choose a different new password"};
   }
-  const hash=await preparePassword(newPassword as string);
+  const hash=await preparePassword(newPassword as string, "admin");
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO admin_credentials (id,password_salt,password_hash,iterations)
      VALUES(1,?1,?2,?3) ON CONFLICT(id) DO UPDATE SET

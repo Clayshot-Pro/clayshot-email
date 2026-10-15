@@ -1,27 +1,444 @@
+/*
+ * Shared inbox theme contract — v2.04.
+ * This file loads after the original inbox, dark and modal styles.
+ * Values match the orange/deep charcoal-brown palette of the live inbox.
+ * Authentication, admin, Settings and account controls consume these tokens
+ * instead of defining competing standalone color themes.
+ */
+:root {
+  --panel-2: var(--panel-raised);
+  --ui-cta: linear-gradient(180deg, #ff9847, #ff742b);
+  --ui-cta-hover: linear-gradient(180deg, #ffa253, #ff8034);
+  --ui-cta-border: #ff8a3d;
+  --ui-cta-ink: #1b0e07;
+  --ui-control: #1b1815;
+  --ui-control-hover: #241f1b;
+  --ui-field: #171412;
+  --ui-field-border: #302a25;
+  --ui-focus-border: #704328;
+  --ui-focus-ring: rgba(255, 122, 47, .12);
+  --ui-error-bg: #2a1714;
+  --ui-error-border: #60362f;
+  --ui-error-text: #e9988f;
+}
 
-/* v2.01: device-scoped mailbox sign-in and owner-only admin panel */
-.account-signin { display: grid; gap: 12px; width: 100%; }
-.account-signin .auth-setup { display: grid; gap: 9px; }
-.account-signin-divider { display: flex; align-items: center; gap: 12px; margin: 12px 0; color: var(--text-muted, #bcb3a8); font-size: 0.83rem; }
-.account-signin-divider::before, .account-signin-divider::after { content: ""; flex: 1; height: 1px; background: var(--border, #65574c); }
-.auth-secondary { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border, #65574c); color: var(--text, #f4ece5); background: var(--surface, #302a26); font: inherit; cursor: pointer; }
-.auth-secondary:hover { filter: brightness(1.12); }
+/* Primary call to action: same gradient and foreground as Compose / Send. */
+.primary-compose,
+.send-control,
+.reader-reply-bar .reply-primary,
+.auth-primary,
+.settings-primary,
+.admin-home .settings-primary {
+  border: 1px solid var(--ui-cta-border);
+  background: var(--ui-cta);
+  color: var(--ui-cta-ink);
+  font-weight: 750;
+  box-shadow: 0 8px 24px rgba(255, 116, 43, .13);
+}
+.primary-compose:hover:not(:disabled),
+.send-control:hover:not(:disabled),
+.reader-reply-bar .reply-primary:hover:not(:disabled),
+.auth-primary:hover:not(:disabled),
+.settings-primary:hover:not(:disabled),
+.admin-home .settings-primary:hover:not(:disabled) {
+  border-color: var(--ui-cta-border);
+  background: var(--ui-cta-hover);
+  color: var(--ui-cta-ink);
+}
+.auth-primary,
+.settings-primary {
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, filter .16s ease;
+}
+.auth-primary:disabled,
+.settings-primary:disabled,
+.admin-home button:disabled,
+.account-login-modal button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* The login page uses exactly the inbox background, content and border hues. */
+.auth-shell,
+.admin-home {
+  color: var(--text);
+  background: radial-gradient(circle at 26% 2%, #201813 0, var(--bg) 35%);
+}
+.auth-card {
+  width: min(100%, 440px);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.auth-heading h1,
+.auth-heading p,
+.auth-card,
+.auth-setup label {
+  color: var(--text);
+}
+.auth-heading > p:last-child,
+.auth-note,
+.auth-state,
+.auth-card .account-signin-divider {
+  color: var(--muted);
+}
+.auth-eyebrow { color: var(--accent-2); }
+.account-signin {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.account-signin .auth-setup {
+  display: grid;
+  gap: 10px;
+}
+.account-signin-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: .83rem;
+}
+.account-signin-divider::before,
+.account-signin-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.account-signin .auth-primary { width: 100%; }
+.auth-primary {
+  min-height: 46px;
+  border-radius: 10px;
+}
+.auth-secondary,
+.admin-home-header .auth-secondary {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--ui-control);
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.auth-secondary:hover:not(:disabled),
+.admin-home-header .auth-secondary:hover:not(:disabled) {
+  border-color: var(--ui-focus-border);
+  background: var(--ui-control-hover);
+  color: var(--text);
+}
+.auth-setup input,
+.account-signin input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-field-border);
+  border-radius: 9px;
+  background: var(--ui-field);
+  color: var(--text);
+  font: inherit;
+  color-scheme: dark;
+}
+.auth-setup input::placeholder,
+.account-signin input::placeholder,
+.mailbox-password-form input::placeholder,
+.admin-password-form input::placeholder {
+  color: var(--muted-2);
+}
+.auth-setup input:focus,
+.account-signin input:focus,
+.admin-password-form input:focus,
+.mailbox-password-form input:focus,
+.admin-home input:focus {
+  border-color: var(--ui-focus-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
+.auth-warning {
+  border: 1px solid var(--line-strong);
+  background: var(--accent-soft);
+  color: var(--accent-2);
+}
+.auth-error,
+.admin-home .auth-error {
+  border: 1px solid var(--ui-error-border);
+  background: var(--ui-error-bg);
+  color: var(--ui-error-text);
+}
+
+/* The administrator page is a full-page inbox surface, not a new theme. */
+.admin-home {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: clamp(16px, 3vw, 42px);
+}
+.admin-home-card {
+  max-width: 1050px;
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+}
+.admin-home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+}
+.admin-home-header h1 {
+  margin: 4px 0 8px;
+  color: var(--text);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+.admin-home-header p { margin-bottom: 0; color: var(--muted); }
+.admin-home-header .auth-eyebrow { color: var(--accent-2); }
+.admin-home-header .auth-secondary { width: auto; white-space: nowrap; }
+.admin-home .settings-section {
+  padding: clamp(14px, 3vw, 22px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+}
+.admin-home .settings-section h2,
+.admin-home .settings-section h3,
+.admin-home .settings-section strong {
+  color: var(--text);
+}
+.admin-home .settings-section p,
+.admin-home .settings-section small {
+  color: var(--muted);
+}
+.admin-password-form,
+.mailbox-password-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.admin-password-form { max-width: 470px; }
+.admin-password-form label,
+.mailbox-password-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--text);
+  font-weight: 500;
+}
+.admin-password-form input,
+.mailbox-password-form input:not([type="checkbox"]),
+.admin-home .settings-section input:not([type="checkbox"]):not([type="range"]),
+.settings-modal .settings-section input:not([type="checkbox"]):not([type="range"]) {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-field-border);
+  border-radius: 9px;
+  background: var(--ui-field);
+  color: var(--text);
+  font: inherit;
+  color-scheme: dark;
+}
+.admin-home input[type="checkbox"],
+.settings-modal input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+.mailbox-password-form {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-soft);
+}
+.mailbox-password-form .mailbox-password-show {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: .86rem;
+}
+.admin-home .settings-row-actions { flex-wrap: wrap; }
+
+/* Account and Settings controls follow the same panel and field surfaces. */
 .account-login-modal { max-width: 460px; }
-.mailbox-generated-password { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border, #65574c); border-radius: 10px; background: var(--surface, #302a26); overflow-wrap: anywhere; }
-.mailbox-generated-password code { display: block; padding: 10px; border-radius: 7px; font-size: 0.9rem; user-select: all; background: rgba(224, 130, 53, 0.13); }
+.settings-modal,
+.account-login-modal {
+  border-color: var(--line);
+  background: var(--panel);
+  color: var(--text);
+}
+.settings-modal > header,
+.settings-section {
+  border-color: var(--line);
+}
+.settings-section > p,
+.settings-modal header span,
+.settings-row small,
+.settings-account small {
+  color: var(--muted);
+}
+.settings-account,
+.settings-row {
+  border-color: var(--line);
+  background: var(--panel-raised);
+  color: var(--text);
+}
+.settings-avatar-fallback {
+  background: var(--accent);
+  color: var(--ui-cta-ink);
+}
+.settings-close {
+  color: var(--muted);
+}
+.settings-close:hover {
+  color: var(--text);
+}
+.settings-account button:not(.settings-primary),
+.settings-row button:not(.settings-primary),
+.settings-row-actions button:not(.settings-primary),
+.admin-home .settings-account button:not(.settings-primary),
+.mailbox-generated-password button {
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--ui-control);
+  color: var(--text);
+}
+.settings-account button:not(.settings-primary):hover:not(:disabled),
+.settings-row button:not(.settings-primary):hover:not(:disabled),
+.settings-row-actions button:not(.settings-primary):hover:not(:disabled),
+.admin-home .settings-account button:not(.settings-primary):hover:not(:disabled),
+.mailbox-generated-password button:hover:not(:disabled) {
+  border-color: var(--ui-focus-border);
+  background: var(--ui-control-hover);
+  color: var(--text);
+}
+.admin-home .settings-account button.mailbox-danger-button,
+.settings-row.danger button {
+  color: var(--danger);
+  border-color: var(--ui-error-border);
+  background: var(--ui-error-bg);
+}
+.admin-home .settings-account button.mailbox-danger-button:hover:not(:disabled),
+.settings-row.danger button:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: #35201b;
+  color: #f0a49a;
+}
+.admin-home .settings-account {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-home .settings-account .settings-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
 
+/* Shared generated credential and field styling. */
+.mailbox-generated-password {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-raised);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.mailbox-generated-password code {
+  display: block;
+  padding: 10px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent-2);
+  font-size: .9rem;
+  user-select: all;
+}
+.settings-modal select,
+.admin-home select {
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--ui-field);
+  color: var(--text);
+  color-scheme: dark;
+}
+.settings-modal input:focus,
+.admin-home input:focus {
+  border-color: var(--ui-focus-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}
 
-/* v2.02: standalone administrator experience and explicit credential editors. */
-.admin-home { min-height:100dvh; padding:clamp(16px,3vw,42px); background:var(--bg,#251f1b); color:var(--text,#f4ece5); }
-.admin-home-card { max-width:1050px; margin:0 auto; display:grid; gap:24px; }
-.admin-home-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px; padding:24px; border-radius:16px; background:var(--surface,#302a26); border:1px solid var(--border,#65574c); }
-.admin-home-header h1 { margin:4px 0 8px; font-size:clamp(1.4rem,3vw,2rem); }
-.admin-home-header p { margin-bottom:0; }
-.admin-home-header .auth-secondary { width:auto; white-space:nowrap; }
-.admin-home .settings-section { background:var(--surface,#302a26); border:1px solid var(--border,#65574c); border-radius:14px; padding:clamp(14px,3vw,22px); }
-.admin-password-form { display:grid; gap:12px; max-width:470px; margin-top:14px; }
-.admin-password-form label,.mailbox-password-form label { display:grid; gap:7px; font-weight:500; }
-.admin-password-form input,.mailbox-password-form input:not([type="checkbox"]) { width:100%; min-width:0; padding:11px; border:1px solid var(--border,#65574c); border-radius:9px; background:var(--bg,#251f1b); color:var(--text,#f4ece5); font:inherit; }
-.mailbox-password-form { display:grid; gap:10px; margin-top:12px; padding:14px; border-radius:12px; border:1px solid var(--border,#65574c); }
-.mailbox-password-form .mailbox-password-show { display:flex; flex-direction:row; align-items:center; gap:8px; font-size:.86rem; }
-@media(max-width:580px) {.admin-home-header {align-items:stretch;} .admin-home-header .auth-secondary {width:100%;}}
+/* The inbox's account selector and security dialogs should not expose
+ * colors from legacy blue/grey or older purple themes. */
+.desktop-account-option:hover,
+.desktop-account-option.active {
+  background: var(--panel-raised);
+  border-color: var(--line);
+  color: var(--text);
+}
+.desktop-account-fallback {
+  background: var(--accent-soft);
+  color: var(--accent-2);
+}
+.sessions-modal { color: var(--text); }
+.sessions-header span { color: var(--accent-2); }
+.sessions-current { background: var(--accent-soft); color: var(--accent-2); }
+.session-current { background: var(--accent-soft); color: var(--accent-2); }
+.sessions-actions button:not(.sessions-danger):hover:not(:disabled) {
+  border-color: var(--ui-focus-border);
+  background: var(--ui-control-hover);
+  color: var(--text);
+}
+
+/* Shared focus indicator, including keyboard users on the sign-in screen. */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 580px) {
+  .auth-shell { padding: 12px; }
+  .auth-card { padding: 22px; border-radius: 16px; }
+  .admin-home-header { align-items: stretch; }
+  .admin-home-header .auth-secondary { width: 100%; }
+  .admin-home .settings-account .settings-row-actions { width: 100%; }
+}
+
+.mailbox-create-form {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+.mailbox-entry-input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-field-border);
+  border-radius: 9px;
+  background: var(--ui-field);
+  color: var(--text);
+  font: inherit;
+  color-scheme: dark;
+}
+.mailbox-entry-input::placeholder { color: var(--muted-2); }
+.mailbox-entry-input:focus {
+  border-color: var(--ui-focus-border);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ui-focus-ring);
+}

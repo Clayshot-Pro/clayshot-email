@@ -225,22 +225,22 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
                     {box.status === "active" ? "Disable" : "Enable"}
                   </button>
                 )}
-                {!isPrimary && !box.deleted_at && <button type="button" disabled={busy !== null} onClick={() => void remove(box)}>Delete</button>}
+                {!isPrimary && !box.deleted_at && <button className="mailbox-danger-button" type="button" disabled={busy !== null} onClick={() => void remove(box)}>Delete</button>}
                 {box.deleted_at && !expired && <button type="button" disabled={busy !== null} onClick={() => void restore(box)}>Restore</button>}
-                {box.deleted_at && expired && <button type="button" disabled={busy !== null} onClick={() => void purge(box)}>Erase permanently</button>}
+                {box.deleted_at && expired && <button className="mailbox-danger-button" type="button" disabled={busy !== null} onClick={() => void purge(box)}>Erase permanently</button>}
               </div>
             </div>
           );
         })}
       </div>
-      <form onSubmit={e => void create(e)} style={{ display: "grid", gap: 8, marginTop: 12 }}>
+      <form className="mailbox-create-form" onSubmit={e => void create(e)}>
         <label htmlFor="new-mailbox-address">New mailbox address</label>
         <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
           placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
-          required style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
+          required className="mailbox-entry-input" />
         <label htmlFor="new-mailbox-name">Display name (optional)</label>
         <input id="new-mailbox-name" maxLength={80} value={displayName} onChange={e => setDisplayName(e.target.value)}
-          placeholder="Personal" style={{ width: "100%", padding: 10, color: "var(--text)", background: "var(--surface, #302a26)", border: "1px solid var(--border, #65574c)", borderRadius: 8 }} />
+          placeholder="Personal" className="mailbox-entry-input" />
         <button className="settings-primary" type="submit" disabled={busy !== null || !address.trim()}>
           {busy === "new" ? "Creating…" : "Create mailbox"}
         </button>
