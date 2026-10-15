@@ -18,6 +18,14 @@ type Props = {
   onSearchChange: (v: string) => void;
   onRefresh: () => void | Promise<void>;
   onOpenMessage: (id: string) => void;
+  selectionMode: boolean;
+  selectedIds: string[];
+  bulkBusy: boolean;
+  canPermanentlyDelete: boolean;
+  onToggleSelection: () => void;
+  onToggleMailSelected: (id: string) => void;
+  onToggleSelectAll: (ids: string[]) => void;
+  onBulkAction: (action: string) => void;
   onToggleNotifications: () => void;
 };
 
@@ -51,6 +59,14 @@ export function MailList({
   onSearchChange,
   onRefresh,
   onOpenMessage,
+  selectionMode,
+  selectedIds,
+  bulkBusy,
+  canPermanentlyDelete,
+  onToggleSelection,
+  onToggleMailSelected,
+  onToggleSelectAll,
+  onBulkAction,
   onToggleNotifications,
 }: Props) {
   const [listFilter, setListFilter] = useState<ListFilter>("all");
@@ -158,7 +174,7 @@ export function MailList({
   }, [onRefresh]);
 
   const threadedMessages = useMemo(() => {
-    if (folder === "drafts") return messages;
+    if (folder === "drafts" || selectionMode) return messages;
     const collapsed = new Map<string, MessageListItem>();
     for (const item of messages) {
       const existing = collapsed.get(item.threadId);
@@ -170,7 +186,7 @@ export function MailList({
       }
     }
     return [...collapsed.values()];
-  }, [folder, messages]);
+  }, [folder, messages, selectionMode]);
 
   const visible = useMemo(
     () => !filtersEnabled || listFilter === "all"
@@ -192,13 +208,50 @@ export function MailList({
     </header>
     <div className="search-wrap mail-list-search"><Icon name="search" size={17}/><input aria-label="Search mail" placeholder={folder === "drafts" ? "Search drafts…" : "Search emails, people, or keywords…"} value={search} onChange={(event) => onSearchChange(event.target.value)}/>{search ? <button type="button" aria-label="Clear search" onClick={() => onSearchChange("")}>×</button> : null}</div>
     {filtersEnabled ? <div className="mail-filter-tabs" role="tablist" aria-label="Message filters"><button type="button" className={listFilter === "all" ? "active" : ""} onClick={() => setListFilter("all")}>All</button><button type="button" className={listFilter === "unread" ? "active" : ""} onClick={() => setListFilter("unread")}>Unread</button><button type="button" className={listFilter === "starred" ? "active" : ""} onClick={() => setListFilter("starred")}>Starred</button></div> : <div className="draft-list-label">Autosaved drafts</div>}
+    <div className="mail-bulk-bar">
+      {!selectionMode ? (
+        <button className="mail-select-toggle" type="button" onClick={onToggleSelection}>Select</button>
+      ) : (
+        <>
+          <label className="mail-select-all">
+            <input
+              type="checkbox"
+              disabled={bulkBusy || visible.length === 0}
+              checked={visible.length > 0 && visible.every((message) => selectedIds.includes(message.id))}
+              onChange={() => onToggleSelectAll(visible.map((message) => message.id))}
+            />
+            <span>All</span>
+          </label>
+          <span className="mail-selection-count">{selectedIds.length} selected</span>
+          <div className="mail-bulk-actions">
+            {folder === "trash" ? (
+              <>
+                <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("restore")}>Restore</button>
+                {canPermanentlyDelete ? (
+                  <button className="mail-danger-action" type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("permanent")}>Delete forever</button>
+                ) : <span className="mail-bulk-note" title="Google mail deletion requires additional Gmail permissions">Permanent deletion in Gmail</span>}
+              </>
+            ) : folder === "drafts" ? (
+              <button className="mail-danger-action" type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("deleteDraft")}>Delete drafts</button>
+            ) : (
+              <>
+                <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction(folder === "archive" ? "unarchive" : "archive")}>{folder === "archive" ? "Unarchive" : "Archive"}</button>
+                <button type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("read")}>Mark read</button>
+                <button className="mail-danger-action" type="button" disabled={bulkBusy || !selectedIds.length} onClick={() => onBulkAction("trash")}>Delete</button>
+              </>
+            )}
+          </div>
+          <button className="mail-select-cancel" type="button" disabled={bulkBusy} onClick={onToggleSelection}>Cancel</button>
+        </>
+      )}
+    </div>
     <div ref={scrollRef} className="mail-list-scroll" aria-busy={loading || pullRefreshing}>
       <div aria-live="polite" style={{ height: pullDistance, opacity: pullDistance > 8 ? 1 : 0, display: "grid", placeItems: "center", overflow: "hidden", transition: touchStartY.current === null ? "height 160ms ease, opacity 160ms ease" : "none", color: "var(--muted)", fontSize: 11 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Icon name="refresh" size={15}/>{pullRefreshing ? "Refreshing…" : pullDistance >= PULL_TRIGGER_PX ? "Release to refresh" : "Pull to refresh"}</span>
       </div>
       {loading ? <div className="mail-list-state">Loading mail…</div> : null}
       {!loading && visible.length === 0 ? <div className="mail-list-empty"><div className="empty-orb"><Icon name={search ? "search" : folder === "drafts" ? "draft" : folder === "junk" ? "junk" : "inbox"} size={22}/></div><strong>{search ? "No results" : folder === "drafts" ? "No saved drafts" : listFilter === "all" ? `No mail in ${folderLabel.toLowerCase()}` : `No ${listFilter} messages`}</strong><span>{search ? "Try a different name, subject, or phrase." : folder === "drafts" ? "Messages you start writing will autosave here." : folder === "junk" ? "Gmail spam messages appear here when a connected Gmail account is selected." : "Messages will appear here when they arrive."}</span></div> : null}
-      {!loading && visible.map((message) => <button key={message.id} className={`mail-row ${message.isRead ? "" : "unread"} ${message.isDraft ? "draft-row" : ""} ${selectedId === message.id ? "selected" : ""}`} type="button" onClick={() => onOpenMessage(message.id)}><span className="mail-row-unread-marker" aria-hidden="true"/><SenderAvatar message={message}/><div className="mail-row-copy"><div className="mail-row-topline"><span className="mail-row-sender">{message.isDraft ? `Draft · ${message.toAddresses.join(", ") || "No recipient"}` : message.direction === "outbound" ? `To: ${senderLabel(message)}` : senderLabel(message)}</span><time>{formatDate(message.sentAt || message.receivedAt)}</time></div><div className="mail-row-subject"><strong>{message.subject || "(no subject)"}</strong>{message.isStarred ? <span className="star-mark">★</span> : null}{message.hasAttachments ? <span className="attachment-mark"><Icon name="paperclip" size={13}/></span> : null}</div><p>{message.preview || (message.isDraft ? "Empty draft" : "No preview available")}</p></div></button>)}
+      {!loading && visible.map((message) => <div key={message.id} className={"mail-selection-row" + (selectionMode ? " selection-active" : "")}>{selectionMode ? <input className="mail-select-checkbox" type="checkbox" aria-label={"Select message " + (message.subject || "without subject")} checked={selectedIds.includes(message.id)} disabled={bulkBusy} onChange={() => onToggleMailSelected(message.id)} /> : null}<button className={`mail-row ${message.isRead ? "" : "unread"} ${message.isDraft ? "draft-row" : ""} ${selectedId === message.id ? "selected" : ""}`} type="button" onClick={() => onOpenMessage(message.id)}><span className="mail-row-unread-marker" aria-hidden="true"/><SenderAvatar message={message}/><div className="mail-row-copy"><div className="mail-row-topline"><span className="mail-row-sender">{message.isDraft ? `Draft · ${message.toAddresses.join(", ") || "No recipient"}` : message.direction === "outbound" ? `To: ${senderLabel(message)}` : senderLabel(message)}</span><time>{formatDate(message.sentAt || message.receivedAt)}</time></div><div className="mail-row-subject"><strong>{message.subject || "(no subject)"}</strong>{message.isStarred ? <span className="star-mark">★</span> : null}{message.hasAttachments ? <span className="attachment-mark"><Icon name="paperclip" size={13}/></span> : null}</div><p>{message.preview || (message.isDraft ? "Empty draft" : "No preview available")}</p></div></button></div>)}
     </div>
   </section>;
 }
