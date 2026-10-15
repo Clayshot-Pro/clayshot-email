@@ -1084,20 +1084,6 @@ a:focus-visible {
   line-height: 1.5;
   font-size: .8rem;
 }
-.auth-admin-help {
-  padding-top: 15px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: .82rem;
-  line-height: 1.55;
-}
-.auth-admin-help summary {
-  width: fit-content;
-  cursor: pointer;
-  color: var(--accent-2);
-  font-weight: 650;
-}
-.auth-admin-help p { margin: 9px 0 0; overflow-wrap: anywhere; }
 .auth-state { padding: 18px 0; text-align: center; }
 .auth-card .auth-error { margin: 0; font-size: .84rem; }
 @media (max-width: 520px) {
