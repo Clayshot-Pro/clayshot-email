@@ -11,6 +11,7 @@ import type {
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import { APP_ORIGIN, RP_ID } from "./config";
+import { tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
 import { OWNER_IDLE_TTL_SECONDS, OWNER_SESSION_COOKIE, OWNER_SESSION_TTL_SECONDS, readOwnerSessionToken } from "./ownerSessionPolicy";
 
 const CHALLENGE_TTL_SECONDS = 5 * 60;
@@ -337,7 +338,10 @@ export async function verifyAuthentication(request: Request, env: Env): Promise<
 
   const requiresPassword = await adminPasswordConfigured(env);
   const challenge = await takeChallenge(env, body.challengeId, "authentication");
-  if (!challenge) return jsonError("Authentication challenge expired or invalid", 400);
+  if (!challenge) {
+    await tryRecordAdminSecurityEvent(env, "admin.login.passkey", "denied");
+    return jsonError("Authentication challenge expired or invalid", 400);
+  }
   if (requiresPassword && (!challenge.admin_pending_hash || await pendingAdminHash(request,env)!==challenge.admin_pending_hash)) {
     return jsonError("Administrator password verification required", 403);
   }
@@ -350,7 +354,10 @@ export async function verifyAuthentication(request: Request, env: Env): Promise<
   `)
     .bind(body.response.id)
     .first<CredentialRow>();
-  if (!stored) return jsonError("Passkey authentication failed", 401);
+  if (!stored) {
+    await tryRecordAdminSecurityEvent(env, "admin.login.passkey", "denied");
+    return jsonError("Passkey authentication failed", 401);
+  }
 
   try {
     const verification = await verifyAuthenticationResponse({
@@ -366,7 +373,10 @@ export async function verifyAuthentication(request: Request, env: Env): Promise<
       },
       requireUserVerification: true,
     });
-    if (!verification.verified) return jsonError("Passkey authentication failed", 401);
+    if (!verification.verified) {
+      await tryRecordAdminSecurityEvent(env, "admin.login.passkey", "denied");
+      return jsonError("Passkey authentication failed", 401);
+    }
 
     await env.DB.prepare(`
       UPDATE auth_credentials
@@ -383,8 +393,10 @@ export async function verifyAuthentication(request: Request, env: Env): Promise<
     const headers = new Headers({ "Content-Type": "application/json" });
     headers.append("Set-Cookie", sessionCookie(token));
     if (requiresPassword) headers.append("Set-Cookie", clearPendingCookie());
+    await tryRecordAdminSecurityEvent(env, "admin.login.passkey", "success");
     return new Response(JSON.stringify({ ok: true }), { headers });
   } catch {
+    await tryRecordAdminSecurityEvent(env, "admin.login.passkey", "denied");
     return jsonError("Passkey authentication failed", 401);
   }
 }
