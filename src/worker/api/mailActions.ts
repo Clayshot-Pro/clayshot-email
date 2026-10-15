@@ -33,8 +33,8 @@ export async function permanentlyDeleteMessage(env: Env, accountId: string, id: 
   }
 
   const row = await env.DB.prepare(
-    "SELECT id, thread_id, raw_r2_key FROM messages WHERE id=?1 AND mailbox_id=?2 AND is_deleted=1"
-  ).bind(id, provider.accountId).first<{id:string;thread_id:string;raw_r2_key:string|null}>();
+    "SELECT id, thread_id, raw_r2_key, body_text, body_html FROM messages WHERE id=?1 AND mailbox_id=?2 AND is_deleted=1"
+  ).bind(id, provider.accountId).first<{id:string;thread_id:string;raw_r2_key:string|null;body_text:string|null;body_html:string|null}>();
   if (!row) return errorResponse("Message is not in Trash or does not exist", 404);
 
   const attachments = await env.DB.prepare("SELECT r2_key FROM attachments WHERE message_id=?1")
@@ -58,7 +58,10 @@ export async function permanentlyDeleteMessage(env: Env, accountId: string, id: 
 
   // Clean up objects only after committed DB deletion. Retain R2 data if any
   // other mailbox/message still refers to it (historical shared MIME keys).
-  let reclaimedBytes = 0;
+  const encoder = new TextEncoder();
+  // Outbound and legacy metadata-only messages occupy D1, not R2.
+  let reclaimedBytes = row.raw_r2_key ? 0
+    : encoder.encode(row.body_text ?? "").byteLength + encoder.encode(row.body_html ?? "").byteLength;
   let cleanupFailures = 0;
   for (const key of new Set([row.raw_r2_key, ...attachments.results.map(a => a.r2_key)].filter((key): key is string => Boolean(key)))) {
     try {
@@ -74,11 +77,11 @@ export async function permanentlyDeleteMessage(env: Env, accountId: string, id: 
       cleanupFailures++;
     }
   }
-  if (reclaimedBytes) {
-    await env.DB.prepare(
-      "UPDATE native_mailboxes SET used_bytes=MAX(0,used_bytes-?2),usage_version=usage_version+1 WHERE id=?1"
-    ).bind(provider.accountId, reclaimedBytes).run();
-  }
+  // Always invalidate in-flight usage reconciliation, even if an R2 cleanup
+  // failed or this message had zero physical bytes.
+  await env.DB.prepare(
+    "UPDATE native_mailboxes SET used_bytes=MAX(0,used_bytes-?2),usage_version=usage_version+1 WHERE id=?1"
+  ).bind(provider.accountId, reclaimedBytes).run();
   return Response.json({
     ok: true,
     permanentlyDeleted: true,
@@ -103,10 +106,6 @@ export async function bulkMailAction(request: Request, env: Env): Promise<Respon
   if (action === "permanent" && provider.kind === "gmail") {
     return errorResponse("Permanent deletion of Gmail mail is unavailable with current Google permissions.", 409);
   }
-  if (action === "deleteDraft" && provider.kind === "gmail") {
-    // The app's drafts live in D1 for all providers; delete only own drafts.
-  }
-
   const successes: string[] = [];
   const failures: Array<{ id: string; error: string }> = [];
   for (const id of ids as string[]) {
