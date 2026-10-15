@@ -40,7 +40,7 @@ export function senderInitial(message: MessageListItem): string {
 
 export function notificationLabel(state: NotificationState): string {
   switch (state) {
-    case "on": return "Notifications on";
+    case "on": return "Disable notifications";
     case "off": return "Enable notifications";
     case "blocked": return "Notifications blocked";
     case "unsupported": return "Notifications unavailable";
