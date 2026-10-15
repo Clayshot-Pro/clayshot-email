@@ -1,5 +1,9 @@
 import { primaryProfilePath, protectedAccountPath, requestedMailAccount } from "./accountAccess";
 import { adminProtectedApiPath } from "./adminRoutePolicy";
+import { consumeAdminApproval, stepUpOptions, stepUpVerify } from "./adminStepUp";
+import { adminMutationNeedsStepUp, isApprovedAdminMutation } from "./adminStepUpPolicy";
+import { adminMutationEvent, listAdminSecurityEvents, pruneAdminSecurityEvents, tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
+import { readOwnerSessionToken } from "./ownerSessionPolicy";
 import { beginAdminLogin, adminPasswordConfigured, saveAdminPassword } from "./adminAuth";
 import { reconcileMailboxUsage } from "./usage";
 import {
@@ -42,6 +46,8 @@ const AUTH_POSTS = new Set([
   "/api/auth/login/options",
   "/api/auth/login/verify",
   "/api/admin/login/password",
+  "/api/admin/step-up/options",
+  "/api/admin/step-up/verify",
   "/api/accounts/gmail/connect",
 ]);
 const MAX_API_BODY_BYTES = 8 * 1024 * 1024;
@@ -130,6 +136,16 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
   ]);
   if (!isAdmin && accountIds.length === 0) return unauthorizedResponse();
   if (adminProtectedApiPath(url.pathname) && !isAdmin) return jsonError("Administrator passkey required", 403);
+  if (url.pathname === "/api/admin/step-up/options" && request.method === "POST") return stepUpOptions(request, env);
+  if (url.pathname === "/api/admin/step-up/verify" && request.method === "POST") return stepUpVerify(request, env);
+  if (url.pathname === "/api/admin/audit" && request.method === "GET") return listAdminSecurityEvents(env);
+  if (adminMutationNeedsStepUp(request.method, url.pathname)) {
+    if (!isApprovedAdminMutation(request.method, url.pathname)) return jsonError("Unknown protected operation", 404);
+    if (!(await consumeAdminApproval(request, env))) {
+      if (isAdmin) await tryRecordAdminSecurityEvent(env, "admin.action.stepup_missing", "denied", "owner", "operation", url.pathname);
+      return jsonError("Fresh administrator passkey verification required", 403);
+    }
+  }
   if (url.pathname === "/api/admin/password" && request.method === "POST") {
     if (!isAdmin) return jsonError("Administrator verification required", 403);
     if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "admin-change-password"))))
@@ -320,7 +336,29 @@ export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
-      return secureApiResponse(await routeApi(request, env, url));
+      const response = await routeApi(request, env, url);
+      if (isApprovedAdminMutation(request.method, url.pathname)) {
+        // Never retain request payload, mailbox passwords, cookies or assertions.
+        const token = readOwnerSessionToken(request);
+        let actor = "anonymous";
+        if (token) {
+          const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+          actor = Array.from(new Uint8Array(digest)).slice(0, 8)
+            .map(byte => byte.toString(16).padStart(2, "0")).join("");
+        }
+        const outcome = response.ok ? "success" : response.status === 401 || response.status === 403 ? "denied" : "failure";
+        // Paginated operations are one logical action: record completion and
+        // failures, not hundreds of indistinguishable intermediate chunks.
+        const paginated = url.pathname.endsWith("/purge") || url.pathname.endsWith("/reconcile");
+        const page = paginated && response.ok
+          ? await response.clone().json().catch(() => null) as { complete?: boolean } | null
+          : null;
+        if (!paginated || !response.ok || page?.complete === true) {
+          await tryRecordAdminSecurityEvent(env, adminMutationEvent(request.method, url.pathname),
+            outcome, actor, "operation", url.pathname);
+        }
+      }
+      return secureApiResponse(response);
     }
     return env.ASSETS.fetch(request);
   },
@@ -337,5 +375,6 @@ export default {
     if (env.MAILBOX_PURGE_ENABLED === "true") {
       ctx.waitUntil(purgeExpiredNativeMailboxes(env));
     }
+    ctx.waitUntil(pruneAdminSecurityEvents(env));
   },
 } satisfies ExportedHandler<Env>;

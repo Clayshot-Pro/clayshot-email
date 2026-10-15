@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { adminActionFetch, approveAdminAction, type AdminApproval } from "../adminActions";
 
 type Mailbox = {
   id: string;
@@ -12,13 +13,11 @@ type Mailbox = {
   spam_filter_enabled: number;
 };
 
-async function api(path: string, method = "GET", body?: unknown): Promise<Record<string, unknown>> {
-  const response = await fetch(path, {
-    method,
-    cache: "no-store",
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+async function api(path: string, method = "GET", body?: unknown, approval?: AdminApproval): Promise<Record<string, unknown>> {
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  const response = method === "GET"
+    ? await fetch(path, { cache: "no-store" })
+    : await adminActionFetch(path, method, payload, approval);
   const result = await response.json() as Record<string, unknown>;
   if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "Mailbox operation failed");
   return result;
@@ -100,8 +99,10 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   async function purge(box: Mailbox) {
     if (!window.confirm(`Permanently erase ${box.email_address} and its stored emails and attachments? This cannot be undone. Verify your backup first.`)) return;
     await run(box.id, async () => {
+      const path = `/api/mailboxes/${encodeURIComponent(box.id)}/purge`;
+      const approval = await approveAdminAction(path, "POST");
       for (let batch = 0; batch < 300; batch++) {
-        const result = await api(`/api/mailboxes/${encodeURIComponent(box.id)}/purge`, "POST");
+        const result = await api(path, "POST", undefined, approval);
         if (result.complete === true) return;
       }
       throw new Error("Purging is incomplete; repeat the operation to continue safely.");
@@ -111,8 +112,10 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   async function reconcile(box: Mailbox) {
     setBusy(box.id); setNotice(null);
     try {
+      const path = `/api/mailboxes/${encodeURIComponent(box.id)}/reconcile`;
+      const approval = await approveAdminAction(path, "POST");
       for (let i = 0; i < 500; i++) {
-        const result = await api(`/api/mailboxes/${encodeURIComponent(box.id)}/reconcile`, "POST");
+        const result = await api(path, "POST", undefined, approval);
         if (result.complete === true) {
           if (result.applied === true) {
             setNotice(`Storage reconciled: ${(Number(result.countedBytes) / 1048576).toFixed(1)} MB.`);

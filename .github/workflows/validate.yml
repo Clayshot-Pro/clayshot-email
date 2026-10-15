@@ -53,6 +53,9 @@ jobs:
       - name: Administrator privilege boundary and session policy regression
         run: node --experimental-strip-types scripts/test-admin-auth-boundary.mjs
 
+      - name: Administrator step-up and audit regression
+        run: node --experimental-strip-types scripts/test-admin-stepup.mjs
+
       - name: Mailbox rules and Junk heuristic tests
         run: node --experimental-strip-types scripts/test-mailbox-rules.mjs
 

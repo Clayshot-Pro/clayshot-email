@@ -1,5 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { MailboxManager } from "./MailboxManager";
+import { AdminSecurityLog } from "./AdminSecurityLog";
+import { adminActionFetch } from "../adminActions";
 
 export function AdminPanel() {
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -32,14 +34,10 @@ export function AdminPanel() {
     setError("");
     setBusy(true);
     try {
-      const response = await fetch("/api/admin/password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          newPassword,
-          currentPassword: configured ? currentPassword : undefined,
-        }),
-      });
+      const response = await adminActionFetch("/api/admin/password", "POST", JSON.stringify({
+        newPassword,
+        currentPassword: configured ? currentPassword : undefined,
+      }));
       const contentType = response.headers.get("Content-Type") ?? "";
       const result = contentType.includes("application/json")
         ? await response.json() as { error?: string }
@@ -75,7 +73,7 @@ export function AdminPanel() {
         <div>
           <p className="admin-section-kicker">Account security</p>
           <h2>Administrator password</h2>
-          <p>Your passkey remains required whenever you sign in.</p>
+          <p>A fresh passkey check is required to save security changes.</p>
         </div>
         {configured && <span className="admin-security-state">Passkey enabled</span>}
       </div>
@@ -153,11 +151,13 @@ export function AdminPanel() {
         <nav className="admin-home-nav" aria-label="Administrator sections">
           {configured && <a href="#admin-mailboxes">Mailboxes</a>}
           <a href="#admin-security">Security</a>
+          <a href="#admin-audit">Activity</a>
         </nav>
 
         {configured === false && passwordSection}
         {configured && <MailboxManager onChanged={() => undefined} />}
         {configured === true && passwordSection}
+        {configured === true && <AdminSecurityLog />}
         {configured === null && (
           <section className="settings-section admin-loading-panel" role="status">
             Loading administrator settings…
