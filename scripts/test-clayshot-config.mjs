@@ -10,9 +10,13 @@ assert.equal(config.name, "clayshot-pro-email-dev");
 // property prevents Wrangler from attempting a destructive takeover during CI.
 assert.equal(Object.hasOwn(config, "addresses"), false);
 
-assert.equal(config.vars.PRIMARY_ADDRESS, "contact@clayshotpro.com");
+assert.equal(config.vars.PRIMARY_ADDRESS, "");
 assert.equal(config.vars.ADMIN_LOGIN_ADDRESS, "admin@clayshotpro.com");
-assert.deepEqual(config.send_email[0].allowed_sender_addresses, ["contact@clayshotpro.com"]);
+assert.deepEqual(config.send_email.map((sender) => sender.name), ["EMAIL_MULTI"]);
+assert.equal(config.vars.PRIMARY_ADDRESS, "");
+assert.match(read("src/worker/mailboxes.ts"), /count\?\.n === 0 \? PRIMARY_MAILBOX_ID/);
+assert.match(read("src/worker/providers/registry.ts"), /const primary = await mailboxById\(env, NATIVE_ACCOUNT_ID\)/);
+assert.match(read("src/worker/email/send.ts"), /env.MULTI_SENDER_APPROVED !== "true"/);
 assert.equal(config.d1_databases[0].binding, "DB");
 assert.equal(config.r2_buckets[0].binding, "MAIL");
 const req = new Request("https://email.clayshot-dev.com/api/auth/login/options");
@@ -29,4 +33,4 @@ assert.match(read("migrations/0010_native_mailboxes.sql"), /contact@clayshotpro\
 for (const path of ["src/worker/mailboxRules.ts","src/worker/mailboxes.ts","src/worker/push.ts"]) {
   assert.doesNotMatch(read(path), /liamthemo\.com/);
 }
-console.log("PASS: Clayshot email routing, mailbox data, admin identity and WebAuthn origin");
+console.log("PASS: Clayshot domain, admin identity, manual mailbox creation and WebAuthn origin");

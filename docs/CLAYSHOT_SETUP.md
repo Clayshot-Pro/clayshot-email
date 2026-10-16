@@ -120,7 +120,14 @@ admin-created mailboxes can receive mail but cannot send native mail.
 For Gmail, provision `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, `PROVIDER_CREDENTIAL_KEY`, and register
 `https://email.clayshot-dev.com/api/accounts/gmail/callback` in
-Google Cloud Console. For push, configure the VAPID keypair.
+Google Cloud Console. For push, configure the VAPID keypair. On Windows PowerShell with Node.js
+installed, generate the keys with:
+```powershell
+npx --yes web-push generate-vapid-keys --json
+```
+Store `publicKey` as the Worker secret `VAPID_PUBLIC_KEY` and
+`privateKey` as `VAPID_PRIVATE_KEY`. Never commit the private key.
+Existing push subscriptions must keep using the same keypair.
 
 ## Final acceptance
 
