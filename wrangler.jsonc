@@ -31,6 +31,9 @@
     {
       "name": "EMAIL",
       "allowed_sender_addresses": ["contact@liamthemo.com"]
+    },
+    {
+      "name": "EMAIL_DYNAMIC"
     }
   ],
   "triggers": { "crons": ["0 4 * * *"] },
