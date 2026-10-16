@@ -125,7 +125,7 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
           {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
             <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isJunk: true }, true)} aria-label="Mark as junk"><Icon name="junk" size={17}/><span>Junk</span></button>
           ) : null}
-          <button className="mobile-reader-action" type="button" onClick={() => setUnsubscribeOpen(true)} aria-label="Unsubscribe options" title="Unsubscribe options">
+          <button className="mobile-reader-action unsubscribe-mobile-action" type="button" onClick={() => setUnsubscribeOpen(true)} aria-label="Unsubscribe options" title="Unsubscribe options">
             <Icon name="mail" size={17}/><span>Unsubscribe</span>
           </button>
           <button className="mobile-reader-action" type="button" onClick={onReply} aria-label="Reply to message"><Icon name="reply" size={17}/><span>Reply</span></button>
