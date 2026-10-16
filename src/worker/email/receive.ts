@@ -1,5 +1,6 @@
 import { suspectedJunk } from "./junk";
 import { mailboxForRecipient, PRIMARY_MAILBOX_ID } from "../mailboxes";
+import { MAIL_DOMAIN } from "../mailboxRules";
 import PostalMime from "postal-mime";
 import { sendNewMailPush } from "../push";
 import { sanitizeEmailHtml } from "./html";
@@ -94,8 +95,8 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const id = crypto.randomUUID();
   const now = new Date();
   const nowIso = now.toISOString();
-  // Generated Message-IDs follow the configured sender domain, not a fixed web host.
-  const senderDomain = env.PRIMARY_ADDRESS.split("@").at(-1) || "localhost";
+  // Envelope fallback Message-IDs use the actual native email domain.
+  const senderDomain = MAIL_DOMAIN;
   const headerMessageId = (parsed.messageId?.trim() || message.headers.get("message-id")?.trim() || `<${id}@${senderDomain}>`).slice(0, 998);
   // Delivery retries may reuse the same SMTP envelope/MIME, but two real
   // messages can share a sender-supplied RFC Message-ID. Dedup by MIME+recipient

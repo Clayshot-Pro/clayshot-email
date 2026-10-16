@@ -36,7 +36,6 @@ interface Env {
   DB: D1Database;
   MAIL: R2Bucket;
   ASSETS: Fetcher;
-  EMAIL: EmailServiceBinding;
   EMAIL_MULTI: EmailServiceBinding;
   MULTI_SENDER_APPROVED?: string;
   MAILBOX_PURGE_ENABLED?: string;

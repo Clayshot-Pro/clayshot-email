@@ -10,7 +10,7 @@
 | Webmail origin | `https://email.clayshot-dev.com` |
 | Incoming email domain | `clayshotpro.com` |
 | Catch-all | `*@clayshotpro.com` → `clayshot-pro-email-dev` |
-| Primary mailbox | `contact@clayshotpro.com` |
+| Primary mailbox | First address created by administrator (none by default) |
 | Administrator login | `admin@clayshotpro.com` |
 | D1 | `DB` → `clayshot-pro-email-dev` |
 | R2 | `MAIL` → `clayshot-pro-email-dev-mail` |
@@ -62,10 +62,15 @@ Do not switch WebAuthn RP ID to `clayshotpro.com`.
 5. Ensure the configured custom domain still routes to this Worker:
    `https://email.clayshot-dev.com`. The repository intentionally
    does not replace an existing dashboard-managed custom-domain route.
-6. A fresh database seeds the primary mailbox as
-   `contact@clayshotpro.com`. If the database already has an
-   old primary mailbox, **do not assume editing a previously applied
-   migration will update it**; plan an explicit data migration.
+6. New installations have **no default native mailbox** after all D1
+   migrations. The first mailbox you create in **Email administration →
+   Mailboxes** gets the protected `native:primary` identifier regardless
+   of its email address. No `contact@clayshotpro.com` address is required.
+   Migration `0016` safely removes the old unused seeded contact mailbox
+   only when it has no saved messages, drafts, credentials, audit history
+   or other mailbox references. Older installation seeds using
+   `contact@liamthemo.com` are handled the same way. If the previous mailbox contains user
+   activity, it is preserved for deliberate manual review and migration.
 
 ## Receiving mail
 
@@ -83,11 +88,13 @@ Do not switch WebAuthn RP ID to `clayshotpro.com`.
 3. Confirm the effective catch-all points to
    `clayshot-pro-email-dev` and that the *deployed* Worker exports
    `email()`. HTTP `fetch()` continues to serve the webmail UI/API.
-4. In the admin panel activate the native primary mailbox and add any
-   others needed. The catch-all does not automatically create inboxes.
-5. Send external test mail to `contact@clayshotpro.com`, a new
-   mailbox, a plus alias and an unknown address. Verify correct D1/R2
-   persistence, attachment delivery and rejection of unknown recipients.
+4. Register the owner passkey and password, open **Email administration →
+   Mailboxes**, and create the first address you want (for example
+   `team@clayshotpro.com`). This is automatically your protected primary
+   mailbox. The catch-all does **not** create addresses automatically.
+5. Send test mail to your chosen first address, another admin-created
+   mailbox, a plus alias and an unknown recipient. Verify correct D1/R2
+   persistence and rejection of unknown recipients.
 
 ## Administrator onboarding
 
@@ -105,15 +112,23 @@ Do not switch WebAuthn RP ID to `clayshotpro.com`.
 Inbound routing does **not** enable native outbound sending.
 Onboard `clayshotpro.com` separately under Cloudflare Email Sending,
 verify DNS (SPF, DKIM, DMARC, bounces), eligibility and your intended
-use case. The `EMAIL` binding permits the primary sender; extra
-native senders stay disabled unless independently approved and
-`MULTI_SENDER_APPROVED` is enabled. Do not enable ordinary personal
-email sending where Cloudflare policy does not permit it.
+use case. No native sender is pre-authorized by mailbox creation. All native
+outbound sending is gated behind Cloudflare's `EMAIL_MULTI` binding and
+`MULTI_SENDER_APPROVED=true`, which must be enabled **only when**
+Cloudflare explicitly permits the sender and intended use. Until then,
+admin-created mailboxes can receive mail but cannot send native mail.
 
 For Gmail, provision `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, `PROVIDER_CREDENTIAL_KEY`, and register
 `https://email.clayshot-dev.com/api/accounts/gmail/callback` in
-Google Cloud Console. For push, configure the VAPID keypair.
+Google Cloud Console. For push, configure the VAPID keypair. On Windows PowerShell with Node.js
+installed, generate the keys with:
+```powershell
+npx --yes web-push generate-vapid-keys --json
+```
+Store `publicKey` as the Worker secret `VAPID_PUBLIC_KEY` and
+`privateKey` as `VAPID_PRIVATE_KEY`. Never commit the private key.
+Existing push subscriptions must keep using the same keypair.
 
 ## Final acceptance
 
@@ -121,7 +136,7 @@ Google Cloud Console. For push, configure the VAPID keypair.
 - [ ] Workers Builds production deployment succeeds **from main**
 - [ ] HTTPS webmail loads at `email.clayshot-dev.com`
 - [ ] Separate Cloudflare D1 `DB` and R2 `MAIL` bindings work
-- [ ] `contact@clayshotpro.com` receives an external email in the Inbox
+- [ ] The **first admin-created mailbox** receives external mail in the Inbox
 - [ ] Unknown recipients are rejected; plus aliases resolve correctly
 - [ ] `admin@clayshotpro.com` authenticates with password and passkey
 - [ ] Admin routes are inaccessible to mailbox-only sessions

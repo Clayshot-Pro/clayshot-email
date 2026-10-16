@@ -191,13 +191,13 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
       <div className="admin-mailbox-create">
         <div className="admin-subsection-heading">
           <h3>Create an address</h3>
-          <p>A secure password will be generated for the new mailbox.</p>
+          <p>A secure password will be generated for the new mailbox. The first address becomes the protected primary mailbox and cannot be disabled or deleted.</p>
         </div>
         <form className="mailbox-create-form" onSubmit={e => void create(e)}>
           <label htmlFor="new-mailbox-address">
             Email address
             <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
-              placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
+              placeholder="name@clayshotpro.com" value={address} onChange={e => setAddress(e.target.value)}
               required className="mailbox-entry-input" />
           </label>
           <label htmlFor="new-mailbox-name">
@@ -228,7 +228,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
           <span>{loaded ? `${mailboxes.length} registered` : "Loading…"}</span>
         </div>
         {loaded && mailboxes.length === 0 ? (
-          <p className="admin-mailbox-empty">No mailboxes found.</p>
+          <p className="admin-mailbox-empty">No mailboxes created yet. Create your first address above to start receiving mail. The first address will be your primary mailbox.</p>
         ) : null}
       <div className="settings-accounts admin-mailbox-items">
         {mailboxes.map(box => {
