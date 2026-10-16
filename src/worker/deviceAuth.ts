@@ -2,6 +2,7 @@ import { mailboxPasswordError } from "./mailboxPasswordPolicy";
 import { preparePassword, checkPassword } from "./passwordCrypto";
 import { isAuthenticated, logout as ownerLogout } from "./auth";
 import { normalizeMailboxAddress } from "./mailboxRules";
+import { adminLoginAddress, isAdministratorEmail, legacyAdminLoginAddress } from "./config";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
 
 const DEVICE_COOKIE = "__Host-ltm_device";
@@ -118,9 +119,9 @@ export async function deviceAccountIds(request: Request, env: Env): Promise<stri
     LEFT JOIN native_mailboxes n ON g.provider='native' AND n.id=g.account_id
     LEFT JOIN connected_accounts a ON g.provider='gmail' AND a.id=g.account_id
     WHERE g.session_id=?1 AND (
-      (g.provider='native' AND n.status='active' AND n.deleted_at IS NULL AND n.email_address!='admin@liamthemo.com') OR
+      (g.provider='native' AND n.status='active' AND n.deleted_at IS NULL AND n.email_address NOT IN (?2,?3)) OR
       (g.provider='gmail' AND a.status IN ('active','reauth_required'))
-    )`).bind(session.id).all<{account_id:string}>();
+    )`).bind(session.id, adminLoginAddress(request), legacyAdminLoginAddress(request, env.PRIMARY_ADDRESS) ?? "").all<{account_id:string}>();
   return items.results.map(i => i.account_id);
 }
 export async function deviceStatus(request: Request, env: Env): Promise<Response> {
@@ -134,7 +135,7 @@ export async function deviceLogin(request: Request, env: Env): Promise<Response>
   const input = await request.json<{ email?: unknown; password?: unknown }>().catch(() => null);
   const email = typeof input?.email === "string" ? input.email : "";
   const password = typeof input?.password === "string" ? input.password : "";
-  if (!email || email.trim().toLowerCase() === "admin@liamthemo.com" || password.length > 128) return jsonError("Invalid credentials", 401);
+  if (!email || isAdministratorEmail(request,email,env.PRIMARY_ADDRESS) || password.length > 128) return jsonError("Invalid credentials", 401);
   if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "native-login")))) {
     return jsonError("Too many attempts. Try again later.", 429);
   }

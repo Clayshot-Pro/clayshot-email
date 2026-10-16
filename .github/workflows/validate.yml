@@ -53,6 +53,9 @@ jobs:
       - name: Administrator privilege boundary and session policy regression
         run: node --experimental-strip-types scripts/test-admin-auth-boundary.mjs
 
+      - name: Portable administrator host and authentication origin regression
+        run: node --experimental-strip-types scripts/test-portable-origin.mjs
+
       - name: Administrator step-up and audit regression
         run: node --experimental-strip-types scripts/test-admin-stepup.mjs
 

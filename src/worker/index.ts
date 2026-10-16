@@ -32,7 +32,7 @@ import {
   verifyAuthentication,
   verifyRegistration,
 } from "./auth";
-import { APP_ORIGIN } from "./config";
+import { appOrigin } from "./config";
 import { receiveEmail } from "./email/receive";
 import { sendEmail } from "./email/send";
 import { googleOAuthCallback, startGoogleOAuth } from "./providers/google";
@@ -55,8 +55,14 @@ const MAX_API_BODY_BYTES = 8 * 1024 * 1024;
 const jsonError = (message: string, status: number, headers?: HeadersInit) =>
   Response.json({ error: message }, { status, headers });
 
-const sameOrigin = (request: Request) =>
-  SAFE_METHODS.has(request.method) || request.headers.get("Origin") === APP_ORIGIN;
+const sameOrigin = (request: Request): boolean => {
+  try {
+    const origin = appOrigin(request);
+    return SAFE_METHODS.has(request.method) || request.headers.get("Origin") === origin;
+  } catch {
+    return false;
+  }
+};
 
 function requestTooLarge(request: Request): boolean {
   const raw = request.headers.get("Content-Length");
