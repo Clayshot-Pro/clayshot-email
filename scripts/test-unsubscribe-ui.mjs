@@ -5,6 +5,9 @@ const reader = readFileSync(new URL("../src/client/components/MessageReader.tsx"
 const buttons = [...reader.matchAll(/<button[^>]+onClick=\{\(\) => setUnsubscribeOpen\(true\)\}/g)];
 assert.equal(buttons.length, 2, "Unsubscribe must remain present in both mobile header and desktop/mobile footer");
 assert.match(reader, /className="unsubscribe-action"/);
+assert.match(reader, /className="mobile-reader-action unsubscribe-mobile-action"/);
+const styles = readFileSync(new URL("../src/client/ui-overrides.css", import.meta.url), "utf8");
+assert.match(styles, /\.reader-actions button\.unsubscribe-mobile-action\s*\{\s*display:\s*grid !important;/, "Unsubscribe must not be hidden by narrow-screen nth-child rules");
 assert.match(reader, /aria-label="Unsubscribe options"/);
 assert.doesNotMatch(reader, /message\.direction === "inbound" && message\.unsubscribeUrl/, "Missing headers must not hide unsubscribe");
 assert.match(reader, /messageUnsubscribeUrl\(message\?\.bodyHtml, message\?\.bodyText\)/);
