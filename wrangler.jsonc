@@ -50,8 +50,5 @@
   },
   "observability": {
     "enabled": true
-  },
-  "addresses": [
-    "*@clayshotpro.com"
-  ]
+  }
 }

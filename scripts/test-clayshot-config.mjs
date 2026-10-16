@@ -6,7 +6,10 @@ import { normalizeMailboxAddress } from "../src/worker/mailboxRules.ts";
 const read = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const config = JSON.parse(read("wrangler.jsonc"));
 assert.equal(config.name, "clayshot-pro-email-dev");
-assert.deepEqual(config.addresses, ["*@clayshotpro.com"]);
+// Catch-all routing is managed in the Cloudflare dashboard. Omitting the
+// property prevents Wrangler from attempting a destructive takeover during CI.
+assert.equal(Object.hasOwn(config, "addresses"), false);
+
 assert.equal(config.vars.PRIMARY_ADDRESS, "contact@clayshotpro.com");
 assert.equal(config.vars.ADMIN_LOGIN_ADDRESS, "admin@clayshotpro.com");
 assert.deepEqual(config.send_email[0].allowed_sender_addresses, ["contact@clayshotpro.com"]);

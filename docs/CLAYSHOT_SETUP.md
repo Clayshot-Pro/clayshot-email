@@ -72,10 +72,14 @@ Do not switch WebAuthn RP ID to `clayshotpro.com`.
 1. In **Email Service → Email Routing**, onboard `clayshotpro.com`
    and verify the Cloudflare MX/TXT records. Do not replace an active
    third-party MX service without a deliberate migration.
-2. `wrangler.jsonc` declares the Worker-managed catch-all using
-   `"addresses": ["*@clayshotpro.com"]`. Wrangler reconciles its
-   managed routing rules on deploy. Inspect any existing manual
-   catch-all to avoid duplicate/conflicting destination rules.
+2. Manage the `*@clayshotpro.com` catch-all **in the Cloudflare dashboard**:
+   under **Email Service → Email Routing → Routing Rules**, set the
+   **Catch-all** action to **Send to a Worker → clayshot-pro-email-dev**.
+   The existing rule is dashboard-managed, so `wrangler.jsonc`
+   intentionally **omits** the `addresses` property. Wrangler leaves
+   existing dashboard-managed Email Routing rules unchanged on deploy.
+   Do **not** set `"addresses": []`, which would instead remove
+   Wrangler-managed rules. Do not run an interactive takeover.
 3. Confirm the effective catch-all points to
    `clayshot-pro-email-dev` and that the *deployed* Worker exports
    `email()`. HTTP `fetch()` continues to serve the webmail UI/API.
