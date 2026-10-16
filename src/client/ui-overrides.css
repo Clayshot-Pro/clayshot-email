@@ -1683,42 +1683,111 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
   color: #1b0f08;
 }
 
-/* Native unsubscribe links mirror the message action controls. */
-.reader-reply-bar a.unsubscribe-action {
-  display: inline-flex;
+/* Unsubscribe is available for every opened message, including Trash. */
+.reader-reply-bar button.unsubscribe-action {
+  border-color: #61432f;
+  color: #e3b089;
+}
+.reader-reply-bar button.unsubscribe-action:hover {
+  border-color: #ab7145;
+  color: #ffe0c3;
+}
+.unsubscribe-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 3, 3, .76);
+  padding: 20px;
+}
+.unsubscribe-dialog {
+  width: min(440px, 100%);
+  max-height: min(80dvh, 550px);
+  overflow-y: auto;
+  padding: 22px;
+  border: 1px solid #4a362a;
+  border-radius: 16px;
+  background: #201915;
+  color: #e6d7cb;
+  box-shadow: 0 20px 65px rgba(0, 0, 0, .5);
+}
+.unsubscribe-dialog-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.unsubscribe-dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #fff3e9;
+}
+.unsubscribe-dialog-header button {
+  border: 0;
+  background: transparent;
+  color: #c7b4a5;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 7px 9px;
+}
+.unsubscribe-dialog p {
+  margin: 0 0 14px;
+  color: #c4b5a9;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.unsubscribe-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 21px;
+}
+.unsubscribe-dialog-actions button,
+.unsubscribe-dialog-actions a {
+  display: inline-flex;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid #302a25;
-  border-radius: 8px;
-  background: #171412;
-  color: #aaa098;
-  font-size: 10px;
-  font-weight: 600;
+  align-items: center;
+  min-height: 40px;
+  padding: 10px 15px;
+  border: 1px solid #504137;
+  border-radius: 9px;
+  background: #2c241f;
+  color: #e6d6ca;
   text-decoration: none;
-  white-space: nowrap;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
 }
-.reader-reply-bar a.unsubscribe-action:hover {
-  border-color: #4c4037;
-  background: #211c18;
-  color: #f4ebe4;
+.unsubscribe-dialog-actions a {
+  border-color: #ff8936;
+  background: #ff8936;
+  color: #261309;
 }
-.reader-actions a.mobile-reader-action {
-  text-decoration: none;
-  color: inherit;
+.unsubscribe-dialog-actions a:hover {
+  background: #ffa35c;
 }
 @media (max-width: 760px) {
-  .reader-reply-bar a.unsubscribe-action {
-    display: none;
+  .unsubscribe-dialog-backdrop {
+    padding: 15px;
   }
-  .reader-actions a.mobile-reader-action {
+  .unsubscribe-dialog {
+    padding: 18px;
+  }
+  .reader-actions .mobile-reader-action {
     flex: 0 0 34px;
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
   }
-  .reader-actions a.mobile-reader-action span {
-    display: none;
+}
+
+/* Narrow layouts used to hide the second toolbar action. In Trash,
+ * Unsubscribe can be that second action, so explicitly retain it.
+ */
+@media (max-width: 420px) {
+  .reader-actions button.unsubscribe-mobile-action {
+    display: grid !important;
   }
 }

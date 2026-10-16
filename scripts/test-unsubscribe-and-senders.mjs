@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { listUnsubscribeUrl } from "../src/worker/email/unsubscribe.ts";
+import { listUnsubscribeUrl, messageUnsubscribeUrl } from "../src/worker/email/unsubscribe.ts";
 import { isNativeSenderAllowed, nativeSendTransportReady } from "../src/worker/providers/senderPolicy.ts";
 import { sendViaEmailServiceApi } from "../src/worker/providers/emailServiceApi.ts";
 
@@ -11,6 +11,32 @@ assert.equal(listUnsubscribeUrl("<http://example.com/unsubscribe>"), null);
 assert.equal(listUnsubscribeUrl("<https://127.0.0.1/admin>"), null);
 assert.equal(listUnsubscribeUrl("<https://localhost/admin>"), null);
 assert.equal(listUnsubscribeUrl(null), null);
+assert.equal(
+  messageUnsubscribeUrl('<p><a href="https://list.example.com/unsubscribe?id=7&amp;email=a">Unsubscribe</a></p>', ""),
+  "https://list.example.com/unsubscribe?id=7&email=a",
+);
+assert.equal(
+  messageUnsubscribeUrl('<p>To unsubscribe, <a href="https://list.example.com/off">click here</a>.</p>', ""),
+  "https://list.example.com/off",
+);
+assert.equal(
+  messageUnsubscribeUrl('<a href="javascript:alert(1)">Unsubscribe</a>', ""), null,
+);
+assert.equal(
+  messageUnsubscribeUrl('<a href="http://list.example.com/remove">Unsubscribe</a>', ""), null,
+);
+assert.equal(
+  messageUnsubscribeUrl('<a href="https://example.com/pay">View invoice</a>', ""), null,
+);
+assert.equal(
+  messageUnsubscribeUrl("", "To unsubscribe from emails:\\nhttps://list.example.com/remove?ref=1"),
+  "https://list.example.com/remove?ref=1",
+);
+assert.equal(
+  messageUnsubscribeUrl("", "Unsubscribe: mailto:remove@example.com?subject=unsubscribe"),
+  "mailto:remove@example.com?subject=unsubscribe",
+);
+assert.equal(messageUnsubscribeUrl(null, "This message has no unsubscribe instructions."), null);
 
 const env = { PRIMARY_ADDRESS: "contact@liamthemo.com" };
 assert.equal(isNativeSenderAllowed(env, "contact@liamthemo.com"), true);

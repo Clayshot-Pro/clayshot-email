@@ -155,7 +155,9 @@ Docs: [Email Sending REST API](https://developers.cloudflare.com/email-service/a
 
 ### Unsubscribing from received mail
 
-Native and connected Gmail messages expose an **Unsubscribe** link when an inbound message includes a valid `List-Unsubscribe` header with an HTTPS or mailto destination. The link is user-initiated and opens the sender's site or mail application; it is **not** a server-side automatic request and does not claim a subscription was cancelled. Existing native messages can use the headers retained in R2; no migration is required. The link never fetches automatically in the background, and unsafe schemes and local network destinations are refused. If a sender provides no standard unsubscribe header, use an unsubscribe link in the message content if you trust it, or mark unwanted messages as Junk. Unsubscribing is not the same as blocking a sender.
+The **Unsubscribe** control is always available whenever a message is open, regardless of Inbox, Junk, Archive, Starred, Sent or **Trash** folder (desktop and mobile). It first checks standard `List-Unsubscribe` headers, then looks for likely unsubscribe instructions in the message body when headers are missing. Native messages can still use headers retained in R2, including older Trash messages; Gmail uses its message headers. Clicking the control opens an explanation dialog. External links are user-initiated only, never fetched automatically, and require a supported HTTPS or mailto destination.
+
+**Unsubscribe cannot be guaranteed for every sender.** If a received message provides no unsubscribe mechanism, the dialog explains the limitation; it does not falsely report a successful unsubscription. Sent messages display the same control but explain why unsubscribing from a message you sent is not meaningful. Trash status does not suppress the action or its link. A sender-provided URL is not trusted automatically: review it before providing credentials or confirming anything. For mail without a usable subscription-management method, use Junk and other available mail controls.
 
 ## 7. Configure secrets (not Git files)
 
