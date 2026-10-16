@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { normalizeMailboxAddress } from "../src/worker/mailboxRules.ts";
 import { suspectedJunk } from "../src/worker/email/junk.ts";
 import { adminPasswordError, mailboxPasswordError } from "../src/worker/mailboxPasswordPolicy.ts";
@@ -29,3 +30,8 @@ assert.equal(adminPasswordError("Abcd?789"),null);
 assert.equal(adminPasswordError("Ab1!"), null);
 assert.match(adminPasswordError("Ab!") ?? "", /at least 4/);
 assert.match(adminPasswordError("X".repeat(33))??"",/at most 32/);
+
+const source = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+assert.match(source("src/worker/mailboxes.ts"), /crypto\.getRandomValues\(new Uint8Array\(24\)\)/);
+assert.match(source("src/worker/deviceAuth.ts"), /rotateMailboxPassword[\s\S]*?new Uint8Array\(24\)/);
+console.log("PASS: generated mailbox passwords remain within 4–32 characters");

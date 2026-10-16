@@ -72,7 +72,8 @@ export async function setMailboxPassword(env: Env, id: string, password: string)
   ]);
 }
 export async function rotateMailboxPassword(env: Env, id: string): Promise<string> {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  // 24 random bytes -> 32 base64url chars (192 bits of entropy).
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
   const password = b64url(bytes);
   await setMailboxPassword(env,id,password);
   return password; // only displayed once to the verified owner.
