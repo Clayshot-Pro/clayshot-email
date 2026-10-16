@@ -197,7 +197,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
           <label htmlFor="new-mailbox-address">
             Email address
             <input id="new-mailbox-address" autoComplete="off" spellCheck={false} type="text" maxLength={254}
-              placeholder="example@liamthemo.com" value={address} onChange={e => setAddress(e.target.value)}
+              placeholder="name@yourdomain.com" value={address} onChange={e => setAddress(e.target.value)}
               required className="mailbox-entry-input" />
           </label>
           <label htmlFor="new-mailbox-name">
