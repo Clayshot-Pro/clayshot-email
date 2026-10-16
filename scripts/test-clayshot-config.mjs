@@ -17,19 +17,19 @@ assert.match(read("src/worker/mailboxes.ts"), /count\?\.n === 0 \? PRIMARY_MAILB
 assert.match(read("src/worker/providers/registry.ts"), /const primary = await mailboxById\(env, NATIVE_ACCOUNT_ID\)/);
 // Active, on-domain mailbox addresses can attempt Cloudflare sending automatically.
 const registry = read("src/worker/providers/registry.ts");
-assert.match(registry, /sendEnabled: normalizeMailboxAddress\\(box.email_address, true\\) === box.email_address.trim\\(\\).toLowerCase\\(\\)/);
+assert.ok(registry.includes('sendEnabled: normalizeMailboxAddress(box.email_address, true) === box.email_address.trim().toLowerCase()'));
 assert.doesNotMatch(registry, /MULTI_SENDER_APPROVED/);
 const sendRoute = read("src/worker/email/send.ts");
-assert.match(sendRoute, /normalizeMailboxAddress\\(provider.address, true\\)/);
+assert.ok(sendRoute.includes('normalizeMailboxAddress(provider.address, true)'));
 assert.doesNotMatch(sendRoute, /env.MULTI_SENDER_APPROVED/);
 const composer = read("src/client/components/ComposeModal.tsx");
 assert.match(composer, /const senderDisabled = currentSender.status !== "active"/);
-assert.match(composer, /role="alert">\\{sendError\\}/);
+assert.ok(composer.includes('role="alert">{sendError}'));
 assert.doesNotMatch(composer, /sendEnabled === false/);
-assert.doesNotMatch(composer, /contact@liamthemo\\.com/);
+assert.ok(!composer.includes('contact@liamthemo.com'));
 const client = read("src/client/App.tsx");
-assert.match(client, /sendError=\\{composeError\\}/);
-assert.match(client, /setComposeError\\(message\\)/);
+assert.ok(client.includes('sendError={composeError}'));
+assert.ok(client.includes('setComposeError(message)'));
 assert.ok(!config.send_email[0].allowed_sender_addresses, "Dynamic binding uses the onboarded sending domain");
 assert.ok(!Object.hasOwn(config.vars, "MULTI_SENDER_APPROVED"));
 assert.equal(config.d1_databases[0].binding, "DB");
