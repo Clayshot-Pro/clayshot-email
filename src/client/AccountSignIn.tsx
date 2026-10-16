@@ -7,7 +7,10 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
   const [pending, setPending] = useState<"google" | "custom" | null>(null);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const isAdmin = email.trim().toLowerCase() === "admin@liamthemo.com";
+  // Administrator mailboxes are a distinct authentication identity. Routing
+  // any admin@ address to the admin endpoint also retains the legacy alias
+  // when a Worker moves from a parent-domain to a subdomain login.
+  const isAdmin = /^admin@[^\\s@]+$/i.test(email.trim());
 
   async function addGoogle() {
     setPending("google"); setError("");
@@ -70,7 +73,7 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
           inputMode="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="name@liamthemo.com"
+          placeholder="name@example.com"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
