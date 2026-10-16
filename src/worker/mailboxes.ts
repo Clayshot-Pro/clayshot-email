@@ -1,4 +1,4 @@
-import { normalizeMailboxAddress } from "./mailboxRules";
+import { mailDomainFromPrimaryAddress, normalizeMailboxAddress } from "./mailboxRules";
 import { credentialForMailbox } from "./deviceAuth";
 /**
  * Native mailboxes are addresses managed by the single existing passkey owner.
@@ -31,7 +31,8 @@ export async function mailboxById(env: Env, id: string): Promise<NativeMailbox |
 }
 
 export async function mailboxForRecipient(env: Env, address: string): Promise<NativeMailbox | null> {
-  const normalized = normalizeMailboxAddress(address, true);
+  const domain = mailDomainFromPrimaryAddress(env.PRIMARY_ADDRESS);
+  const normalized = domain ? normalizeMailboxAddress(address, true, domain) : null;
   if (!normalized) return null;
   // Exact mailbox routing has priority over plus-address aliases.
   const exact = await env.DB.prepare(
@@ -43,9 +44,9 @@ export async function mailboxForRecipient(env: Env, address: string): Promise<Na
   // RFC postmaster and abuse are routed to the protected primary mailbox.
   // Plus suffixes are accepted only if the parent mailbox exists and is active.
   const alias = localPart === "postmaster" || localPart === "abuse"
-    ? "contact@liamthemo.com"
+    ? env.PRIMARY_ADDRESS.trim().toLowerCase()
     : localPart.includes("+")
-      ? `${localPart.split("+", 1)[0]}@liamthemo.com`
+      ? `${localPart.split("+", 1)[0]}@${domain}`
       : null;
   return alias ? env.DB.prepare(
     "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address=?1 AND status='active'"
@@ -61,8 +62,9 @@ export async function allNativeMailboxes(env: Env): Promise<NativeMailbox[]> {
 
 export async function createNativeMailbox(request: Request, env: Env): Promise<Response> {
   const body = await request.json<{ address?: unknown; displayName?: unknown }>().catch(() => null);
-  const address = typeof body?.address === "string" ? normalizeMailboxAddress(body.address) : null;
-  if (!address) return Response.json({ error: "Use an address under liamthemo.com with valid characters" }, { status: 400 });
+  const domain = mailDomainFromPrimaryAddress(env.PRIMARY_ADDRESS);
+  const address = domain && typeof body?.address === "string" ? normalizeMailboxAddress(body.address, false, domain) : null;
+  if (!address) return Response.json({ error: domain ? `Use an address under ${domain} with valid characters` : "Native mail domain is not configured" }, { status: 400 });
   const displayName = typeof body?.displayName === "string" ? safeDisplayName(body.displayName) : "";
   const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM native_mailboxes").first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_MAILBOXES) return Response.json({ error: "Mailbox limit reached" }, { status: 409 });
