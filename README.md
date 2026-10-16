@@ -234,10 +234,10 @@ Official references: [Workers Builds configuration](https://developers.cloudflar
 Open the **final HTTPS Worker hostname**, not a temporary preview address:
 
 1. On the initial sign-in screen choose **Create administrator passkey**, enter your private `AUTH_SETUP_TOKEN` and register your device's passkey.
-2. The newly registered owner session opens **Email administration**. Set an administrator password of **8–32 characters**. This invalidates previous owner sessions.
+2. The newly registered owner session opens **Email administration**. Set an administrator password of **4–32 characters**. This invalidates previous owner sessions.
 3. Sign in again using `admin@YOUR-WORKER-HOST`, the administrator password, and your passkey.
 4. Sensitive admin actions require **fresh passkey verification**. Test a harmless mailbox setting update and confirm an event appears in **Security activity**.
-5. Create or configure a native mailbox password if you want to sign in to that mailbox without an owner session. Native mailbox passwords are **16–128 characters**.
+5. Create or configure a native mailbox password if you want to sign in to that mailbox without an owner session. Native mailbox passwords are **4–32 characters**.
 6. Securely store the administrator password and the passkey/recovery material. There is **no public administrator password-reset or passkey-bypass recovery route**. Do not remove D1 authentication records as an improvised recovery procedure.
 
 The older `admin@liamthemo.com` username is a compatibility alias **only** on the original host under that configured mail domain; new unrelated deployments use the derived hostname address.

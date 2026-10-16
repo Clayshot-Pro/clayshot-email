@@ -27,8 +27,8 @@ export function AdminPanel() {
       setError("Passwords do not match");
       return;
     }
-    if (newPassword.length < 8 || newPassword.length > 32) {
-      setError("Choose a password between 8 and 32 characters");
+    if (newPassword.length < 4 || newPassword.length > 32) {
+      setError("Choose a password between 4 and 32 characters");
       return;
     }
     setError("");
@@ -104,7 +104,7 @@ export function AdminPanel() {
                   id="admin-new-password" type="password" value={newPassword}
                   onChange={event => setNewPassword(event.target.value)}
                   autoComplete="new-password" autoCapitalize="none" spellCheck={false}
-                  minLength={8} maxLength={32} required
+                  minLength={4} maxLength={32} required
                 />
               </label>
               <label htmlFor="admin-confirm-password">
@@ -113,10 +113,10 @@ export function AdminPanel() {
                   id="admin-confirm-password" type="password" value={confirmPassword}
                   onChange={event => setConfirmPassword(event.target.value)}
                   autoComplete="new-password" autoCapitalize="none" spellCheck={false}
-                  minLength={8} maxLength={32} required
+                  minLength={4} maxLength={32} required
                 />
               </label>
-              <p className="admin-password-hint">8–32 characters. Special characters like ? and ! are supported.</p>
+              <p className="admin-password-hint">4–32 characters. Special characters like ? and ! are supported.</p>
               <button type="submit" className="settings-primary" disabled={busy}>
                 {busy ? "Saving…" : configured ? "Update password and sign out" : "Save password and sign out"}
               </button>

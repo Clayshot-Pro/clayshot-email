@@ -67,7 +67,7 @@ export async function createNativeMailbox(request: Request, env: Env): Promise<R
   const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM native_mailboxes").first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_MAILBOXES) return Response.json({ error: "Mailbox limit reached" }, { status: 409 });
   const id = `native:${crypto.randomUUID()}`;
-  const random = crypto.getRandomValues(new Uint8Array(32));
+  const random = crypto.getRandomValues(new Uint8Array(24));
   const password = btoa(String.fromCharCode(...random))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
   const credential = await credentialForMailbox(id,password);
