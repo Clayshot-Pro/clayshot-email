@@ -1,5 +1,6 @@
 import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
+import { isNativeSenderAllowed } from "../providers/senderPolicy";
 
 type ReplyTarget = {
   id: string;
@@ -185,10 +186,7 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   // Cloudflare Email Service requires an explicit sender allowlist for
   // non-verified recipients. Do not let any mailbox impersonate an address
   // merely because that mailbox was created in D1.
-  const allowedCustomSenders = (env.CUSTOM_SENDER_ALLOWLIST ?? "").split(",");
-  if (provider.kind === "native" && provider.address.toLowerCase() !== env.PRIMARY_ADDRESS.toLowerCase()
-      && !allowedCustomSenders.includes(provider.address.toLowerCase())
-      && env.MULTI_SENDER_APPROVED !== "true") {
+  if (provider.kind === "native" && !isNativeSenderAllowed(env, provider.address)) {
     return Response.json({
       error: "This mailbox is not enabled for outbound sending. Add its address to CLOUDFLARE_NATIVE_SENDERS in Cloudflare Workers Builds and redeploy main.",
     }, { status: 403 });
