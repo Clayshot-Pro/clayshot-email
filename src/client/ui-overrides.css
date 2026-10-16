@@ -1815,3 +1815,89 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
+
+/* Keep the mail action footer above the fixed mobile navigation.
+ * The shared .reader-pane height:100% used to override its bottom inset,
+ * putting the footer underneath the nav on small screens and iOS PWAs. */
+@media (max-width: 760px) {
+  .app-shell.message-open .reader-pane:not(.reader-empty) {
+    top: 0;
+    right: 0;
+    bottom: calc(65px + env(safe-area-inset-bottom));
+    left: 0;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-shell.message-open .reader-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .app-shell.message-open .reader-reply-bar {
+    flex: 0 0 auto;
+    min-height: 60px;
+    background: #0e0d0c;
+    padding-bottom: 10px;
+    position: relative;
+    z-index: 5;
+    visibility: visible;
+  }
+
+  .app-shell.message-open .reader-reply-bar .unsubscribe-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Destructive actions use the same dark/amber dialog language as Unsubscribe. */
+.delete-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1002;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(4, 3, 3, .8);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.delete-confirm-panel {
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid #544039;
+  border-radius: 16px;
+  background: #1b1715;
+  color: #eee2d8;
+  box-shadow: 0 26px 90px rgba(0, 0, 0, .48);
+}
+.delete-confirm-panel h3 { margin: 0 0 11px; font-size: 17px; }
+.delete-confirm-panel p { margin: 0 0 20px; color: #b9aba0; font-size: 12px; line-height: 1.65; }
+.delete-confirm-actions { display: flex; gap: 9px; justify-content: flex-end; }
+.delete-confirm-actions button {
+  min-height: 39px;
+  padding: 9px 14px;
+  border: 1px solid #574439;
+  border-radius: 9px;
+  background: #28201c;
+  color: #f1e6dd;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.delete-confirm-actions button:focus-visible { outline: 2px solid #ff9951; outline-offset: 2px; }
+.delete-confirm-actions .delete-confirm-danger {
+  border-color: #98503f;
+  background: #783125;
+  color: #fff4ec;
+}
+.delete-confirm-actions .delete-confirm-danger:hover { background: #953e2f; }
+@media (max-width: 420px) {
+  .delete-confirm-panel { padding: 18px; }
+}
