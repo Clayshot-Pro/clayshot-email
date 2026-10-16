@@ -17,7 +17,7 @@ This is an **authenticated web application**, not a traditional mail server. It 
 | D1 (`DB`) | Mailboxes, message metadata, drafts, sessions, OAuth state, audit logs |
 | R2 (`MAIL`) | Raw MIME, attachments and profile photos |
 | Cloudflare Email Routing | Deliver incoming mail to the Worker's `email()` handler |
-| Cloudflare Email Sending (`EMAIL` / `EMAIL_MULTI`) | Native outbound email where permitted |
+| Cloudflare Email Sending (`EMAIL_MULTI`) | Native outbound from active Clayshot-domain mailboxes where permitted |
 | WebAuthn / passkeys | Owner authentication and fresh approval for sensitive admin operations |
 | Gmail API | Optional account connection, reading, sending and contacts |
 | Web Push / VAPID | Optional browser/PWA notifications |
@@ -146,7 +146,7 @@ Cloudflare's Email Sending is a distinct product, **not** automatically enabled 
 1. In **Email Service > Email Sending**, onboard the native email domain in your Cloudflare account.
 2. Verify SPF, DKIM and DMARC/bounce setup and the product's destination verification and quotas. Keep the domain's DNS authoritative in Cloudflare.
 3. Confirm the `EMAIL` Wrangler binding restricts `allowed_sender_addresses` to your primary address, which must belong to an onboarded sending domain.
-4. `EMAIL_MULTI` is a separate binding without an explicit per-address sender allowlist; the app deliberately gates additional native senders behind a Worker-side variable/secret `MULTI_SENDER_APPROVED=true`. **Leave it unset/false** unless Cloudflare permits the use case and sender authorization has been reviewed.
+4. `EMAIL_MULTI` is the single Cloudflare Email Sending binding with no static per-mailbox sender allowlist. The application authorizes sending from **active, authenticated native mailboxes at `clayshotpro.com`**, including newly created ones. An additional `MULTI_SENDER_APPROVED` toggle is no longer needed. The binding still requires Cloudflare sender-domain onboarding; without verification, Cloudflare may reject the delivery.
 5. Test only with permitted destinations, and inspect delivery, DKIM/SPF/DMARC, replies, bounces and Cloudflare's sending limits.
 
 Gmail sends from connected Gmail accounts through the Gmail API, **not** the Cloudflare native sender binding.
@@ -164,7 +164,7 @@ Use **Cloudflare Worker runtime secrets** under the Worker's **Settings > Variab
 | `GOOGLE_CLIENT_ID` | Gmail only | OAuth client identifier |
 | `GOOGLE_CLIENT_SECRET` | Gmail only | OAuth client secret |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Push only | Matching Web Push/VAPID keypair |
-| `MULTI_SENDER_APPROVED` | No; leave disabled | Enables non-primary native senders *only if authorized and compliant* |
+
 | `MAILBOX_PURGE_ENABLED` | No; leave disabled | Enables daily irreversible deletion after the 30-day mailbox recovery period |
 
 Generate a **unique** strong initial setup secret and, for Gmail, a separate 32-byte encryption key. For example, run these **locally** in your terminal and store the outputs privately:
@@ -277,7 +277,7 @@ The `/api/health` endpoint reports D1/R2 status but is under the authenticated A
 | Passkey fails after changing hostnames | RP IDs differ. Return to the original host or use a planned owner-controlled recovery/migration path; passkeys do not silently migrate. |
 | Google reports `redirect_uri_mismatch` | Add the **exact** generated callback URI in the Google Cloud OAuth client. |
 | Gmail connection fails or requires reconnecting | Verify OAuth scope/consent testing status, Google secrets, encrypted key availability and browser cookie state. |
-| Native outbound is blocked | Verify sender-domain onboarding and Email Sending limits/policy. Extra native senders remain gated by `MULTI_SENDER_APPROVED`. |
+| Native outbound is blocked | Check the selected mailbox is active and on the `clayshotpro.com` domain. Sending can now be attempted without a separate toggle; errors appear directly in Compose. Verify the Clayshot domain is onboarded for Email Sending and inspect Cloudflare activity/recipient restrictions. |
 | Push notifications unavailable | Supply a valid VAPID keypair and check browser/device notification permissions. |
 | Cloudflare preview branch fails | Preview resources and deployment environment differ from production; disable preview builds or configure isolated bindings. Do not debug by pointing previews at production D1. |
 
