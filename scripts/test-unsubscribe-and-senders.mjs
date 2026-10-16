@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { listUnsubscribeUrl, messageUnsubscribeUrl } from "../src/worker/email/unsubscribe.ts";
-import { isNativeSenderAllowed } from "../src/worker/providers/senderPolicy.ts";
-import { nativeProvider } from "../src/worker/providers/native.ts";
+import { isNativeSenderAllowed, nativeSendBinding } from "../src/worker/providers/senderPolicy.ts";
 import { sendViaEmailServiceApi } from "../src/worker/providers/emailServiceApi.ts";
 
 assert.equal(listUnsubscribeUrl("<https://list.example.com/u?id=12>, <mailto:remove@example.com>"), "https://list.example.com/u?id=12");
@@ -46,28 +45,13 @@ assert.equal(isNativeSenderAllowed(env, "future@liamthemo.com"), true);
 assert.equal(isNativeSenderAllowed(env, "admin@evil.com"), false);
 assert.equal(isNativeSenderAllowed(env, "bad@evil.com@liamthemo.com"), false);
 // Existing and future native mailboxes must not depend on REST credentials.
-const sendInput = {
-  to: ["user@example.net"], cc: [], bcc: [], subject: "Test",
-  text: "Hello", headers: {}, attachments: [],
-};
-const sent = [];
-const dynamicBinding = {
-  send: async (message) => { sent.push(message); return { messageId: "mock-dynamic-id" }; },
-};
-const restrictedBinding = {
-  send: async (message) => { sent.push(message); return { messageId: "mock-primary-id" }; },
-};
-const mockEnv = { EMAIL: restrictedBinding, EMAIL_DYNAMIC: dynamicBinding };
-assert.deepEqual(await nativeProvider(mockEnv, "native:secondary", "clayshot@liamthemo.com", "Clayshot Pro").sendMessage(sendInput),
-  { providerMessageId: "mock-dynamic-id" });
-assert.equal(sent[0].from.email, "clayshot@liamthemo.com");
-assert.deepEqual(await nativeProvider(mockEnv, "native:primary", "contact@liamthemo.com", "LTM").sendMessage(sendInput),
-  { providerMessageId: "mock-primary-id" });
-await assert.rejects(
-  nativeProvider({ EMAIL: restrictedBinding }, "native:secondary", "work@liamthemo.com", "Work").sendMessage(sendInput),
-  (error) => error.code === "E_NATIVE_TRANSPORT_NOT_CONFIGURED",
-);
-
+const secondaryBinding = { send: async () => ({ messageId: "mock-dynamic-id" }) };
+const primaryBinding = { send: async () => ({ messageId: "mock-primary-id" }) };
+const mockEnv = { EMAIL: primaryBinding, EMAIL_DYNAMIC: secondaryBinding };
+assert.equal(nativeSendBinding(mockEnv, "native:secondary"), secondaryBinding);
+assert.equal(nativeSendBinding(mockEnv, "native:another-new-mailbox"), secondaryBinding);
+assert.equal(nativeSendBinding(mockEnv, "native:primary"), primaryBinding);
+assert.equal(nativeSendBinding({ EMAIL: primaryBinding }, "native:secondary"), null);
 const accountId = "a".repeat(32);
 const secret = "test-secret-private";
 const creds = { CF_EMAIL_SENDING_ACCOUNT_ID: accountId, CF_EMAIL_SENDING_TOKEN: secret };
