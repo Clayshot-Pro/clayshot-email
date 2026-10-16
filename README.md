@@ -1,4 +1,6 @@
-# LTM Email Service
+# Clayshot Pro Email
+
+**Clayshot-specific deployment:** Start with [Clayshot Cloudflare setup](./docs/CLAYSHOT_SETUP.md). This repository is configured for `email.clayshot-dev.com` (webmail), `*@clayshotpro.com` (incoming email) and `admin@clayshotpro.com` (administrator login). The more generic instructions below were inherited from the original application; Clayshot-specific settings in the linked runbook take precedence.
 
 **A Cloudflare-powered private webmail application** built with React, TypeScript, Vite, Workers, D1, R2, WebAuthn/passkeys and optional Gmail integration.
 

@@ -214,11 +214,11 @@ export async function registrationOptions(request: Request, env: Env): Promise<R
   ).all<{ id: string; transports: string | null }>();
 
   const options = await generateRegistrationOptions({
-    rpName: "LTM Mails",
+    rpName: "Clayshot Pro Email",
     rpID: passkeyRpId(request),
     userID: OWNER_USER_ID,
-    userName: adminLoginAddress(request),
-    userDisplayName: "LTM Mail Owner",
+    userName: adminLoginAddress(request, env.ADMIN_LOGIN_ADDRESS),
+    userDisplayName: "Clayshot Pro Email Administrator",
     attestationType: "none",
     authenticatorSelection: {
       residentKey: "required",

@@ -1,13 +1,13 @@
 {
-  "name": "LTM Mails",
-  "short_name": "LTM Mails",
+  "name": "Clayshot Pro Email",
+  "short_name": "Clayshot Pro Email",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0d0c0b",
   "theme_color": "#0d0c0b",
-  "description": "Private webmail for contact@liamthemo.com",
+  "description": "Private webmail for contact@clayshotpro.com",
   "icons": [
     {
       "src": "/apple-touch-icon.png?v=16",
