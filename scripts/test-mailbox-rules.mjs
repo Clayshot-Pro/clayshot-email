@@ -3,13 +3,13 @@ import { normalizeMailboxAddress } from "../src/worker/mailboxRules.ts";
 import { suspectedJunk } from "../src/worker/email/junk.ts";
 import { adminPasswordError, mailboxPasswordError } from "../src/worker/mailboxPasswordPolicy.ts";
 
-assert.equal(normalizeMailboxAddress(" Personal@LIAMTHEMO.COM "), "personal@liamthemo.com");
-assert.equal(normalizeMailboxAddress("work"), "work@liamthemo.com");
-assert.equal(normalizeMailboxAddress("work+receipts@liamthemo.com"), "work+receipts@liamthemo.com");
-assert.equal(normalizeMailboxAddress("Admin@liamthemo.com"), null, "admin identity is reserved for MFA");
-assert.equal(normalizeMailboxAddress("postmaster@liamthemo.com", true), "postmaster@liamthemo.com");
-assert.equal(normalizeMailboxAddress("abuse@liamthemo.com", true), "abuse@liamthemo.com");
-for (const invalid of ["", "other@gmail.com", "account@liamthemo.com.evil", "../test", "x..y", "postmaster", "abuse", "@liamthemo.com"]) {
+assert.equal(normalizeMailboxAddress(" Personal@CLAYSHOTPRO.COM "), "personal@clayshotpro.com");
+assert.equal(normalizeMailboxAddress("work"), "work@clayshotpro.com");
+assert.equal(normalizeMailboxAddress("work+receipts@clayshotpro.com"), "work+receipts@clayshotpro.com");
+assert.equal(normalizeMailboxAddress("Admin@clayshotpro.com"), null, "admin identity is reserved for MFA");
+assert.equal(normalizeMailboxAddress("postmaster@clayshotpro.com", true), "postmaster@clayshotpro.com");
+assert.equal(normalizeMailboxAddress("abuse@clayshotpro.com", true), "abuse@clayshotpro.com");
+for (const invalid of ["", "other@gmail.com", "account@clayshotpro.com.evil", "../test", "x..y", "postmaster", "abuse", "@clayshotpro.com"]) {
   assert.equal(normalizeMailboxAddress(invalid), null, invalid);
 }
 assert.equal(suspectedJunk("Upcoming meeting notes", "noreply@university.ca", "Agenda attached"), false);

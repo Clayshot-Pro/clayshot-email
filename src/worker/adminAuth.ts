@@ -48,7 +48,7 @@ export async function beginAdminLogin(request: Request, env: Env): Promise<Respo
   if (!(await adminPasswordConfigured(env))) {
     return Response.json({error:"Administrator password setup required"}, {status:409});
   }
-  if (!isAdministratorEmail(request,email,env.PRIMARY_ADDRESS) || !(await verifyAdminPassword(env,password))) {
+  if (!isAdministratorEmail(request,email,env.PRIMARY_ADDRESS,env.ADMIN_LOGIN_ADDRESS) || !(await verifyAdminPassword(env,password))) {
     await tryRecordAdminSecurityEvent(env, "admin.login.password", "denied");
     return Response.json({error:"Invalid credentials"},{status:401});
   }

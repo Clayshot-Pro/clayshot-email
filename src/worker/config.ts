@@ -22,9 +22,15 @@ export function passkeyRpId(request: Request): string {
   return appHostname(request);
 }
 
-/** The primary administrator sign-in changes with the Worker hostname. */
-export function adminLoginAddress(request: Request): string {
-  return `admin@${appHostname(request)}`;
+/** Explicit admin identity can differ from the WebAuthn relying-party hostname. */
+export function adminLoginAddress(request: Request, configuredAddress?: string): string {
+  const host = appHostname(request);
+  if (!configuredAddress?.trim()) return `admin@${host}`;
+  const address = configuredAddress.trim().toLowerCase();
+  if (!/^admin@[a-z0-9]+(?:[.-][a-z0-9]+)*$/.test(address)) {
+    throw new Error("Invalid configured administrator address");
+  }
+  return address;
 }
 
 /**
@@ -41,8 +47,11 @@ export function legacyAdminLoginAddress(request: Request, primaryAddress: string
   return host !== domain && host.endsWith("." + domain) ? `admin@${domain}` : null;
 }
 
-export function isAdministratorEmail(request: Request, email: string, primaryAddress: string): boolean {
+export function isAdministratorEmail(
+  request: Request, email: string, primaryAddress: string, configuredAddress?: string,
+): boolean {
   const normalized = email.trim().toLowerCase();
-  return normalized === adminLoginAddress(request)
-    || normalized === legacyAdminLoginAddress(request, primaryAddress);
+  const configured = Boolean(configuredAddress?.trim());
+  return normalized === adminLoginAddress(request, configuredAddress)
+    || (!configured && normalized === legacyAdminLoginAddress(request, primaryAddress));
 }

@@ -41,6 +41,7 @@ interface Env {
   MULTI_SENDER_APPROVED?: string;
   MAILBOX_PURGE_ENABLED?: string;
   PRIMARY_ADDRESS: string;
+  ADMIN_LOGIN_ADDRESS?: string;
   FORWARD_TO: string;
   AUTH_SETUP_TOKEN?: string;
   VAPID_PUBLIC_KEY?: string;

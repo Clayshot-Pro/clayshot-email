@@ -1,12 +1,14 @@
 import { readFile } from "node:fs/promises";
 
-const CONFIG_PATH = new URL("../dist/ltm_email_service/wrangler.json", import.meta.url);
 const PLACEHOLDER_DATABASE_ID = "00000000-0000-0000-0000-000000000000";
-
-const config = await readFile(CONFIG_PATH, "utf8");
-
-if (config.includes(PLACEHOLDER_DATABASE_ID)) {
-  throw new Error("Generated Wrangler config still contains the placeholder D1 database ID.");
+const source = JSON.parse(await readFile(new URL("../wrangler.jsonc", import.meta.url), "utf8"));
+if (typeof source.name !== "string" || !/^[a-z0-9][a-z0-9_-]*$/.test(source.name)) {
+  throw new Error("Invalid Worker name in wrangler.jsonc.");
 }
-
-console.log("Generated Wrangler config contains the resolved production D1 binding.");
+const outputName = source.name.replace(/-/g, "_");
+const built = JSON.parse(await readFile(new URL(`../dist/${outputName}/wrangler.json`, import.meta.url), "utf8"));
+const resolved = built.d1_databases?.find((entry) => entry.binding === "DB");
+if (built.name !== source.name || !resolved?.database_id || resolved.database_id === PLACEHOLDER_DATABASE_ID) {
+  throw new Error("Generated Wrangler config has the wrong Worker or an unresolved D1 database binding.");
+}
+console.log("Generated Wrangler config has the correct Worker name and resolved production D1 binding.");
