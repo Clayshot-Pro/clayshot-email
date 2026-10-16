@@ -44,6 +44,9 @@ jobs:
       - name: Type-check and build
         run: npm run build
 
+      - name: Clayshot domain and email routing configuration regression
+        run: node --experimental-strip-types scripts/test-clayshot-config.mjs
+
       - name: Native mailbox migration smoke test
         run: python3 scripts/test-mailbox-migration.py
 
