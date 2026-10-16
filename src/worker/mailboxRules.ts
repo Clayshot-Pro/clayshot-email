@@ -1,5 +1,6 @@
 /** Shared, dependency-free address validation for inbound and login. */
-const DOMAIN = "clayshotpro.com";
+export const MAIL_DOMAIN = "clayshotpro.com";
+const DOMAIN = MAIL_DOMAIN;
 const RESERVED = new Set(["postmaster", "abuse", "mailer-daemon", "root", "admin"]);
 
 export function normalizeMailboxAddress(value: string, allowReserved = false): string | null {

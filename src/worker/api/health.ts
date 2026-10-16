@@ -23,7 +23,7 @@ export async function healthResponse(env: Env): Promise<Response> {
   return Response.json(
     {
       ok,
-      service: "ltm-email-service",
+      service: "clayshot-pro-email-dev",
       address: env.PRIMARY_ADDRESS,
       checks,
       timestamp: new Date().toISOString(),

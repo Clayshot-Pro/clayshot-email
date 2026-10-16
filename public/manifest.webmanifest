@@ -7,7 +7,7 @@
   "display": "standalone",
   "background_color": "#0d0c0b",
   "theme_color": "#0d0c0b",
-  "description": "Private webmail for contact@clayshotpro.com",
+  "description": "Private webmail for administrator-managed clayshotpro.com addresses",
   "icons": [
     {
       "src": "/apple-touch-icon.png?v=16",
