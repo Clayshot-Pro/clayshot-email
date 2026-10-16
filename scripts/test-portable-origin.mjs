@@ -49,7 +49,7 @@ assert.match(auth,/userName: adminLoginAddress\(request\)/);
 assert.match(admin,/isAdministratorEmail\(request,email,env.PRIMARY_ADDRESS\)/);
 assert.match(device,/isAdministratorEmail\(request,email,env.PRIMARY_ADDRESS\)/);
 assert.match(device,/n.email_address NOT IN \(\?2,\?3\)/);
-assert.match(ui,/\^admin@/, "Client must recognize the admin identity on arbitrary hostnames");
+assert.match(ui,/isAdminLoginEmail\(email\)/, "Client must route admin identities to MFA login");
 assert.match(google,/origin: appOrigin\(request\)/);
 assert.match(google,/saved.origin !== appOrigin\(request\)/,
   "Google OAuth callback cannot redeem a state initiated on another Worker hostname");

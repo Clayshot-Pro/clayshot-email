@@ -18,11 +18,14 @@ assert.equal(suspectedJunk("Urgent schedule change", "professor@university.ca", 
 console.log("PASS: address normalization and conservative Junk classification");
 
 assert.equal(mailboxPasswordError("correct-horse-battery-staple-2026"),null);
-assert.match(mailboxPasswordError("short")??"",/at least 16/);
+assert.equal(mailboxPasswordError("Ab1!"), null);
+assert.match(mailboxPasswordError("Ab!") ?? "", /at least 4/);
+assert.match(mailboxPasswordError("X".repeat(33)) ?? "", /at most 32/);
 assert.match(mailboxPasswordError("z".repeat(20))??"",/repetitive/);
 assert.match(mailboxPasswordError("password-with-newline"+String.fromCharCode(10)+"2026")??"",/control/);
 console.log("PASS: admin login address reserved and custom password policy validated");
 
 assert.equal(adminPasswordError("Abcd?789"),null);
-assert.match(adminPasswordError("short")??"",/at least 8/);
+assert.equal(adminPasswordError("Ab1!"), null);
+assert.match(adminPasswordError("Ab!") ?? "", /at least 4/);
 assert.match(adminPasswordError("X".repeat(33))??"",/at most 32/);
