@@ -64,7 +64,8 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: box.id === NATIVE_ACCOUNT_ID ? primaryAvatarUrl : null,
       status: box.status,
       lastSyncedAt: null,
-      sendEnabled: box.id === NATIVE_ACCOUNT_ID || env.MULTI_SENDER_APPROVED === "true",
+      sendEnabled: box.id === NATIVE_ACCOUNT_ID || env.MULTI_SENDER_APPROVED === "true" ||
+        (env.CUSTOM_SENDER_ALLOWLIST ?? "").split(",").includes(box.email_address.toLowerCase()),
     })),
     ...result.results.map((row) => ({
       id: row.id,
