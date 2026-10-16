@@ -38,3 +38,22 @@ assert retained.execute(
 ).fetchone() == ("contact@clayshotpro.com",)
 assert retained.execute("SELECT COUNT(*) FROM messages WHERE id='m-original'").fetchone()[0] == 1
 print("PASS: existing mailbox with real message history preserved")
+
+# Older Clayshot deployments could apply the original application's migrations
+# before the Cloudflare deploy command failed. Remove that unused old seed too.
+legacy = database()
+for sql in MIGRATIONS:
+    if sql.name == "0016_remove_unused_default_mailbox.sql":
+        legacy.execute(
+            "UPDATE native_mailboxes SET email_address=?, display_name=? WHERE id='native:primary'",
+            ("contact@liamthemo.com", "LTM Email"),
+        )
+        legacy.execute(
+            "INSERT INTO connected_accounts "
+            "(id,provider,provider_account_id,email_address,display_name,status) "
+            "VALUES ('native:primary','native','native:primary','','LTM Email','active')"
+        )
+    legacy.executescript(sql.read_text(encoding="utf-8"))
+assert legacy.execute("SELECT COUNT(*) FROM native_mailboxes").fetchone()[0] == 0
+assert legacy.execute("SELECT COUNT(*) FROM connected_accounts WHERE id='native:primary'").fetchone()[0] == 0
+print("PASS: untouched legacy-domain bootstrap and registry placeholder removed")

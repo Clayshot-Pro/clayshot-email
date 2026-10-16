@@ -68,7 +68,8 @@ Do not switch WebAuthn RP ID to `clayshotpro.com`.
    of its email address. No `contact@clayshotpro.com` address is required.
    Migration `0016` safely removes the old unused seeded contact mailbox
    only when it has no saved messages, drafts, credentials, audit history
-   or other mailbox references. If the previous mailbox contains user
+   or other mailbox references. Older installation seeds using
+   `contact@liamthemo.com` are handled the same way. If the previous mailbox contains user
    activity, it is preserved for deliberate manual review and migration.
 
 ## Receiving mail

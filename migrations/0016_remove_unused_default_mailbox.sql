@@ -1,4 +1,6 @@
 -- v0.02: Remove only the unused bootstrap mailbox created by old setup.
+-- Some older builds ran migrations with the original liamthemo.com seed
+-- before their final Cloudflare Worker deployment failed.
 -- Do not erase a mailbox that has received mail, was personalized, or has any
 -- saved credentials, ownership grants, audit trail, message data or drafts.
 -- Existing installations with real mailbox data require an explicit migration.
@@ -6,8 +8,8 @@ PRAGMA foreign_keys = ON;
 
 DELETE FROM native_mailboxes
 WHERE id = 'native:primary'
-  AND email_address = 'contact@clayshotpro.com'
-  AND display_name = 'Clayshot Pro Email'
+  AND email_address IN ('contact@clayshotpro.com', 'contact@liamthemo.com')
+  AND display_name IN ('Clayshot Pro Email', 'LTM Email')
   AND status = 'active'
   AND used_bytes = 0
   AND deleted_at IS NULL
@@ -29,7 +31,6 @@ WHERE id = 'native:primary'
 DELETE FROM connected_accounts
 WHERE id = 'native:primary'
   AND provider = 'native'
-  AND email_address = 'contact@clayshotpro.com'
   AND NOT EXISTS (SELECT 1 FROM native_mailboxes WHERE id = 'native:primary')
   AND NOT EXISTS (SELECT 1 FROM provider_message_map WHERE account_id = 'native:primary')
   AND NOT EXISTS (SELECT 1 FROM provider_credentials WHERE account_id = 'native:primary');
