@@ -1,6 +1,6 @@
 # Clayshot Pro Email
 
-**Clayshot-specific deployment:** Start with [Clayshot Cloudflare setup](./docs/CLAYSHOT_SETUP.md). This repository is configured for `email.clayshot-dev.com` (webmail), `*@clayshotpro.com` (incoming email) and `admin@clayshotpro.com` (administrator login). The inbound catch-all is already **managed in the Cloudflare dashboard**, so this repository intentionally omits Wrangler's `addresses` field. This prevents a conflicting routing-rule takeover during noninteractive deployment. The more generic instructions below were inherited from the original application; Clayshot-specific settings in the linked runbook take precedence.
+**Clayshot-specific deployment:** Start with [Clayshot Cloudflare setup](./docs/CLAYSHOT_SETUP.md). This repository is configured for `email.clayshot-dev.com` (webmail), `*@clayshotpro.com` (incoming email) and `admin@clayshotpro.com` (administrator login). There is **no default inbox**: create the first address through the admin panel. The inbound catch-all is already **managed in the Cloudflare dashboard**, so this repository intentionally omits Wrangler's `addresses` field. This prevents a conflicting routing-rule takeover during noninteractive deployment. The more generic instructions below were inherited from the original application; Clayshot-specific settings in the linked runbook take precedence.
 
 **A Cloudflare-powered private webmail application** built with React, TypeScript, Vite, Workers, D1, R2, WebAuthn/passkeys and optional Gmail integration.
 

@@ -14,7 +14,7 @@
     ]
   },
   "vars": {
-    "PRIMARY_ADDRESS": "contact@clayshotpro.com",
+    "PRIMARY_ADDRESS": "",
     "FORWARD_TO": "",
     "ADMIN_LOGIN_ADDRESS": "admin@clayshotpro.com"
   },
@@ -33,12 +33,6 @@
     }
   ],
   "send_email": [
-    {
-      "name": "EMAIL",
-      "allowed_sender_addresses": [
-        "contact@clayshotpro.com"
-      ]
-    },
     {
       "name": "EMAIL_MULTI"
     }

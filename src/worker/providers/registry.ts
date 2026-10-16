@@ -28,6 +28,8 @@ export const NATIVE_ACCOUNT_ID = PRIMARY_MAILBOX_ID;
 export async function ensureNativeAccount(env: Env): Promise<void> {
   // Legacy provider registry must be preserved for Gmail integration and the
   // primary mailbox; new native mailboxes live in native_mailboxes.
+  const primary = await mailboxById(env, NATIVE_ACCOUNT_ID);
+  if (!primary || primary.deleted_at || primary.status !== "active") return;
   await env.DB.prepare(`
     INSERT INTO connected_accounts (
       id, provider, provider_account_id, email_address, display_name, status, updated_at
@@ -35,7 +37,7 @@ export async function ensureNativeAccount(env: Env): Promise<void> {
     ON CONFLICT(id) DO UPDATE SET
       email_address = excluded.email_address,
       status = 'active', updated_at = CURRENT_TIMESTAMP
-  `).bind(NATIVE_ACCOUNT_ID, env.PRIMARY_ADDRESS).run();
+  `).bind(NATIVE_ACCOUNT_ID, primary.email_address).run();
 }
 
 export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[]> {
@@ -64,7 +66,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: box.id === NATIVE_ACCOUNT_ID ? primaryAvatarUrl : null,
       status: box.status,
       lastSyncedAt: null,
-      sendEnabled: box.id === NATIVE_ACCOUNT_ID || env.MULTI_SENDER_APPROVED === "true",
+      sendEnabled: env.MULTI_SENDER_APPROVED === "true",
     })),
     ...result.results.map((row) => ({
       id: row.id,
