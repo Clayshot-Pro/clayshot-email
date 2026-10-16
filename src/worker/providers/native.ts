@@ -127,8 +127,9 @@ export class NativeMailProvider implements MailProvider {
   }
 
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
-    const transport = this.accountId === "native:primary" ? this.env.EMAIL : this.env.EMAIL_MULTI;
-    const result = await transport.send({
+    // All sender addresses require independently approved Cloudflare Email Sending.
+    // The admin panel may create arbitrary inboxes, but must not grant send rights.
+    const result = await this.env.EMAIL_MULTI.send({
       from: { email: this.address, name: this.senderName },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,

@@ -42,13 +42,15 @@ export async function mailboxForRecipient(env: Env, address: string): Promise<Na
   const localPart = normalized.split("@", 1)[0];
   // RFC postmaster and abuse are routed to the protected primary mailbox.
   // Plus suffixes are accepted only if the parent mailbox exists and is active.
-  const alias = localPart === "postmaster" || localPart === "abuse"
-    ? env.PRIMARY_ADDRESS.toLowerCase()
-    : localPart.includes("+")
-      ? `${localPart.split("+", 1)[0]}@${normalized.slice(normalized.lastIndexOf("@") + 1)}`
-      : null;
+  if (localPart === "postmaster" || localPart === "abuse") {
+    const primary = await mailboxById(env, PRIMARY_MAILBOX_ID);
+    return primary?.status === "active" && !primary.deleted_at ? primary : null;
+  }
+  const alias = localPart.includes("+")
+    ? `${localPart.split("+", 1)[0]}@${normalized.slice(normalized.lastIndexOf("@") + 1)}`
+    : null;
   return alias ? env.DB.prepare(
-    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address=?1 AND status='active'"
+    "SELECT id, email_address, display_name, status, quota_bytes, used_bytes, deleted_at, purge_after, spam_filter_enabled, usage_version FROM native_mailboxes WHERE email_address=?1 AND status='active' AND deleted_at IS NULL"
   ).bind(alias).first<NativeMailbox>() : null;
 }
 
@@ -66,7 +68,9 @@ export async function createNativeMailbox(request: Request, env: Env): Promise<R
   const displayName = typeof body?.displayName === "string" ? safeDisplayName(body.displayName) : "";
   const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM native_mailboxes").first<{ n: number }>();
   if ((count?.n ?? 0) >= MAX_MAILBOXES) return Response.json({ error: "Mailbox limit reached" }, { status: 409 });
-  const id = `native:${crypto.randomUUID()}`;
+  // Preserve the primary-mailbox identity for the first admin-created address.
+  // No default email address is provisioned automatically.
+  const id = count?.n === 0 ? PRIMARY_MAILBOX_ID : `native:${crypto.randomUUID()}`;
   const random = crypto.getRandomValues(new Uint8Array(32));
   const password = btoa(String.fromCharCode(...random))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
