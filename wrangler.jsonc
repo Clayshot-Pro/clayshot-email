@@ -33,7 +33,8 @@
       "allowed_sender_addresses": ["contact@liamthemo.com"]
     },
     {
-      "name": "EMAIL_MULTI"
+      "name": "EMAIL_MULTI",
+      "allowed_sender_addresses": ["contact@liamthemo.com"]
     }
   ],
   "triggers": { "crons": ["0 4 * * *"] },

@@ -144,12 +144,16 @@ Cloudflare's Email Sending is a distinct product, **not** automatically enabled 
 1. In **Email Service > Email Sending**, onboard the native email domain in your Cloudflare account.
 2. Verify SPF, DKIM and DMARC/bounce setup and the product's destination verification and quotas. Keep the domain's DNS authoritative in Cloudflare.
 3. Confirm the `EMAIL` Wrangler binding restricts `allowed_sender_addresses` to your primary address, which must belong to an onboarded sending domain.
-4. `EMAIL_MULTI` is a separate binding without an explicit per-address sender allowlist; the app deliberately gates additional native senders behind a Worker-side variable/secret `MULTI_SENDER_APPROVED=true`. **Leave it unset/false** unless Cloudflare permits the use case and sender authorization has been reviewed.
-5. Test only with permitted destinations, and inspect delivery, DKIM/SPF/DMARC, replies, bounces and Cloudflare's sending limits.
+4. The `EMAIL_MULTI` binding requires **an explicit sender address allowlist** to send to arbitrary recipients. In Cloudflare **Workers Builds > Build Variables/Secrets**, set `CLOUDFLARE_NATIVE_SENDERS` to a comma-separated list of the exact additional mailbox addresses authorized for outbound mail (for example `support@example.com,info@example.com`). Do not set this to a domain name, wildcard, or mailbox password. The production build injects those exact addresses into the `EMAIL_MULTI` binding and the server authorization list. Without this variable, only the primary address is permitted. This replaces the old `MULTI_SENDER_APPROVED` flag, which no longer enables sending by itself.
+5. Test only with permitted destinations, and inspect delivery, DKIM/SPF/DMARC, replies, bounces and Cloudflare's sending limits. A Workers Paid purchase does not onboard any sender domain automatically. Do not add unapproved sending domains or addresses. The build-time allowlist must be updated and `main` redeployed whenever you authorize a new native sender.
 
 Gmail sends from connected Gmail accounts through the Gmail API, **not** the Cloudflare native sender binding.
 
 Docs: [Onboard sender domains](https://developers.cloudflare.com/email-service/get-started/send-emails/) · [Send bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/).
+
+### Unsubscribing from received mail
+
+Native and connected Gmail messages expose an **Unsubscribe** link when an inbound message includes a valid `List-Unsubscribe` header with an HTTPS or mailto destination. The link is user-initiated and opens the sender's site or mail application; it is **not** a server-side automatic request and does not claim a subscription was cancelled. Existing native messages can use the headers retained in R2; no migration is required. The link never fetches automatically in the background, and unsafe schemes and local network destinations are refused. If a sender provides no standard unsubscribe header, use an unsubscribe link in the message content if you trust it, or mark unwanted messages as Junk. Unsubscribing is not the same as blocking a sender.
 
 ## 7. Configure secrets (not Git files)
 
@@ -162,7 +166,8 @@ Use **Cloudflare Worker runtime secrets** under the Worker's **Settings > Variab
 | `GOOGLE_CLIENT_ID` | Gmail only | OAuth client identifier |
 | `GOOGLE_CLIENT_SECRET` | Gmail only | OAuth client secret |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Push only | Matching Web Push/VAPID keypair |
-| `MULTI_SENDER_APPROVED` | No; leave disabled | Enables non-primary native senders *only if authorized and compliant* |
+| `CLOUDFLARE_NATIVE_SENDERS` | Cloudflare **build** variable (optional) | Exact comma-separated additional native sender addresses; only configure when sending domain and account policy permit. Never a browser/API value. |
+| `MULTI_SENDER_APPROVED` | Deprecated | Old runtime flag does not grant sender access; use the explicit build-time address allowlist instead. |
 | `MAILBOX_PURGE_ENABLED` | No; leave disabled | Enables daily irreversible deletion after the 30-day mailbox recovery period |
 
 Generate a **unique** strong initial setup secret and, for Gmail, a separate 32-byte encryption key. For example, run these **locally** in your terminal and store the outputs privately:
@@ -275,7 +280,7 @@ The `/api/health` endpoint reports D1/R2 status but is under the authenticated A
 | Passkey fails after changing hostnames | RP IDs differ. Return to the original host or use a planned owner-controlled recovery/migration path; passkeys do not silently migrate. |
 | Google reports `redirect_uri_mismatch` | Add the **exact** generated callback URI in the Google Cloud OAuth client. |
 | Gmail connection fails or requires reconnecting | Verify OAuth scope/consent testing status, Google secrets, encrypted key availability and browser cookie state. |
-| Native outbound is blocked | Verify sender-domain onboarding and Email Sending limits/policy. Extra native senders remain gated by `MULTI_SENDER_APPROVED`. |
+| Native outbound is blocked | Verify Workers Paid in the correct Cloudflare account, sender-domain onboarding and Email Service authentication, then set `CLOUDFLARE_NATIVE_SENDERS` in production **build** variables to the exact sending mailbox address(es). Redeploy `main` and check Email Sending delivery logs for the whitelisted transport error code. `MULTI_SENDER_APPROVED` alone has no effect. |
 | Push notifications unavailable | Supply a valid VAPID keypair and check browser/device notification permissions. |
 | Cloudflare preview branch fails | Preview resources and deployment environment differ from production; disable preview builds or configure isolated bindings. Do not debug by pointing previews at production D1. |
 

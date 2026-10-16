@@ -1,5 +1,6 @@
 import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
+import { isNativeSenderAllowed } from "../providers/senderPolicy";
 
 type ReplyTarget = {
   id: string;
@@ -33,6 +34,7 @@ const MAX_RECIPIENTS = 50;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SAFE_DELIVERY_CODES = new Set([
   "E_RECIPIENT_NOT_ALLOWED",
+  "E_SENDER_NOT_VERIFIED",
   "E_RECIPIENT_SUPPRESSED",
   "E_SENDER_DOMAIN_NOT_AVAILABLE",
   "E_CONTENT_TOO_LARGE",
@@ -89,6 +91,12 @@ function safeDeliveryError(error: unknown): string {
 function userDeliveryError(code: string): string {
   if (code === "E_RECIPIENT_SUPPRESSED") {
     return "Recipient cannot currently receive this email";
+  }
+  if (code === "E_SENDER_NOT_VERIFIED" || code === "E_SENDER_DOMAIN_NOT_AVAILABLE") {
+    return "This sender domain is not enabled or verified for Cloudflare Email Sending";
+  }
+  if (code === "E_RECIPIENT_NOT_ALLOWED") {
+    return "Cloudflare sending is restricted to verified recipients. Configure an allowed sender address for this mailbox";
   }
   if (code === "E_CONTENT_TOO_LARGE") return "Email content is too large";
   if (code === "E_RATE_LIMIT_EXCEEDED" || code === "E_DAILY_LIMIT_EXCEEDED") {
@@ -175,10 +183,13 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  // Cloudflare's current binding permits only the primary sender.
-  // Do not enable other addresses before provider policy and binding approval.
-  if (provider.kind === "native" && provider.address !== env.PRIMARY_ADDRESS && env.MULTI_SENDER_APPROVED !== "true") {
-    return Response.json({ error: "Sending from this mailbox is not enabled yet" }, { status: 403 });
+  // Cloudflare Email Service requires an explicit sender allowlist for
+  // non-verified recipients. Do not let any mailbox impersonate an address
+  // merely because that mailbox was created in D1.
+  if (provider.kind === "native" && !isNativeSenderAllowed(env, provider.address)) {
+    return Response.json({
+      error: "This mailbox is not enabled for outbound sending. Add its address to CLOUDFLARE_NATIVE_SENDERS in Cloudflare Workers Builds and redeploy main.",
+    }, { status: 403 });
   }
   const to = splitRecipients(form.get("to"));
   const cc = splitRecipients(form.get("cc"));
@@ -359,6 +370,9 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   } catch (error) {
     status = "failed";
     deliveryError = safeDeliveryError(error);
+    // Log a whitelisted transport code only; never expose addresses,
+    // message contents, API credentials or provider stack traces.
+    console.warn("Outbound provider rejected message", { provider: provider.kind, code: deliveryError });
   }
 
   if (provider.kind === "native") {
