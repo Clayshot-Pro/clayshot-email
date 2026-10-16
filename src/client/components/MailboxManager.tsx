@@ -175,7 +175,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
         <div>
           <p className="admin-section-kicker">Domain management</p>
           <h2>Mailboxes</h2>
-          <p>Create and manage addresses on liamthemo.com. Each mailbox has its own login and storage.</p>
+          <p>Create and manage addresses on your configured mail domain. Each mailbox has its own login and storage.</p>
         </div>
         <span className="admin-mailbox-count">{loaded ? `${mailboxes.length} total` : "Loading…"}</span>
       </div>

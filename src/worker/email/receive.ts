@@ -94,7 +94,9 @@ export async function receiveEmail(message: ForwardableEmailMessage, env: Env, c
   const id = crypto.randomUUID();
   const now = new Date();
   const nowIso = now.toISOString();
-  const headerMessageId = (parsed.messageId?.trim() || message.headers.get("message-id")?.trim() || `<${id}@email.liamthemo.com>`).slice(0, 998);
+  // Generated Message-IDs follow the configured sender domain, not a fixed web host.
+  const senderDomain = env.PRIMARY_ADDRESS.split("@").at(-1) || "localhost";
+  const headerMessageId = (parsed.messageId?.trim() || message.headers.get("message-id")?.trim() || `<${id}@${senderDomain}>`).slice(0, 998);
   // Delivery retries may reuse the same SMTP envelope/MIME, but two real
   // messages can share a sender-supplied RFC Message-ID. Dedup by MIME+recipient
   // over a short retention window, not by Message-ID.

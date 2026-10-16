@@ -92,7 +92,7 @@ The sign-in page, administrator dashboard, Settings, modals and mailbox forms no
 
 ## v2.02: Reserved admin login with mandatory 2FA
 
-Sign in as **`admin@liamthemo.com`** using an administrator password followed by the existing owner passkey. Successful login opens a standalone administration dashboard instead of the mail inbox. The administrator can choose passwords for individual mailboxes or generate replacements; both operations revoke the affected mailbox's saved device sessions. Initial admin password setup uses the existing passkey, then disables passkey-only access. [Administrator setup and MFA security](./docs/multi-mailbox/ADMIN_MFA.md).
+Sign in as **`admin@<your-worker-hostname>`** (for example, `admin@email.liamthemo.com`) using the administrator password and existing owner passkey. The previous `admin@liamthemo.com` address remains a compatibility alias on the current production host. Successful login opens a standalone administration dashboard instead of the mail inbox. The administrator can choose passwords for individual mailboxes or generate replacements; both operations revoke the affected mailbox's saved device sessions. Initial admin password setup uses the existing passkey, then disables passkey-only access. [Administrator setup and MFA security](./docs/multi-mailbox/ADMIN_MFA.md).
 
 ## v2.01: Device-specific sign-ins and owner administration
 
@@ -135,3 +135,7 @@ If you believe you have found a security vulnerability, **do not publish exploit
 This project is proprietary source code made publicly visible for portfolio, evaluation, and security-review purposes. Public availability does **not** make this software open source and does not grant permission to use the software or its source code.
 
 See [`LICENSE`](./LICENSE) for the complete terms.
+
+### Hosting at other domains
+
+The reserved administrator username, passkey origin/RP ID, same-origin mutation checks, and Gmail redirect endpoint now follow the incoming Worker hostname. Existing login aliases are preserved on the original domain. WebAuthn credentials **cannot** be silently transferred between different hostnames, and changing the native email sender domain still requires independent mail routing and database configuration. See [domain deployment and migration guide](./docs/DEPLOYMENT_DOMAINS.md).
