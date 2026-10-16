@@ -76,7 +76,7 @@ Outside Cloudflare Workers Builds, `npm run build` compiles the app but **delibe
 The repository is configured for its original mail domain, `liamthemo.com`. For **a new, empty database** using `example.com`, change all of the following to your own values:
 
 1. `wrangler.jsonc`: change `vars.PRIMARY_ADDRESS` to `contact@example.com`, set `vars.FORWARD_TO` to an optional verified forwarding address or leave it empty, and replace `send_email[0].allowed_sender_addresses` with your approved primary sender. Set/verify the D1 database and R2 bucket **names** for your account.
-2. `src/worker/mailboxRules.ts`: change the `DOMAIN` constant to `example.com`; otherwise creation and acceptance of native addresses will still be restricted to the original domain.
+2. Native mailbox creation, login, plus-addressing, and postmaster/abuse routing now derive their domain from `vars.PRIMARY_ADDRESS`; do not edit `mailboxRules.ts` manually. Initial D1 seed still needs to match the configured domain (next step).
 3. `migrations/0010_native_mailboxes.sql`: **before the first application only**, replace the seeded `native:primary` email address `contact@liamthemo.com` with `contact@example.com`. The primary mailbox ID must remain `native:primary`.
 4. Review branding and original-domain text, including `src/worker/push.ts` (VAPID contact address and notification fallback), `src/worker/providers/registry.ts` (default display name) and PWA assets, if rebranding.
 5. Do **not** change `wrangler.jsonc`'s zero-valued `database_id` in the committed repository. Production resolves it privately during Cloudflare Builds.

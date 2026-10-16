@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { normalizeMailboxAddress } from "../src/worker/mailboxRules.ts";
+import { normalizeMailboxAddress, mailDomainFromPrimaryAddress } from "../src/worker/mailboxRules.ts";
 import { suspectedJunk } from "../src/worker/email/junk.ts";
 import { adminPasswordError, mailboxPasswordError } from "../src/worker/mailboxPasswordPolicy.ts";
 
 assert.equal(normalizeMailboxAddress(" Personal@LIAMTHEMO.COM "), "personal@liamthemo.com");
 assert.equal(normalizeMailboxAddress("work"), "work@liamthemo.com");
+assert.equal(mailDomainFromPrimaryAddress("contact@clayshotpro.com"), "clayshotpro.com");
+assert.equal(mailDomainFromPrimaryAddress("bogus"), null);
+assert.equal(normalizeMailboxAddress("team", false, "clayshotpro.com"), "team@clayshotpro.com");
+assert.equal(normalizeMailboxAddress("Team@CLAYSHOTPRO.COM", false, "clayshotpro.com"), "team@clayshotpro.com");
+assert.equal(normalizeMailboxAddress("team@liamthemo.com", false, "clayshotpro.com"), null);
+assert.equal(normalizeMailboxAddress("admin@clayshotpro.com", false, "clayshotpro.com"), null);
+assert.equal(normalizeMailboxAddress("postmaster@clayshotpro.com", true, "clayshotpro.com"), "postmaster@clayshotpro.com");
 assert.equal(normalizeMailboxAddress("work+receipts@liamthemo.com"), "work+receipts@liamthemo.com");
 assert.equal(normalizeMailboxAddress("Admin@liamthemo.com"), null, "admin identity is reserved for MFA");
 assert.equal(normalizeMailboxAddress("postmaster@liamthemo.com", true), "postmaster@liamthemo.com");
