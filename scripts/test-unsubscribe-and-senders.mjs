@@ -4,6 +4,7 @@ import { isNativeSenderAllowed } from "../src/worker/providers/senderPolicy.ts";
 
 assert.equal(listUnsubscribeUrl("<https://list.example.com/u?id=12>, <mailto:remove@example.com>"), "https://list.example.com/u?id=12");
 assert.equal(listUnsubscribeUrl("<mailto:unsubscribe@example.com?subject=stop>"), "mailto:unsubscribe@example.com?subject=stop");
+assert.equal(listUnsubscribeUrl("<mailto:unsubscribe@example.com>, <https://list.example.com/stop>"), "https://list.example.com/stop");
 assert.equal(listUnsubscribeUrl("<javascript:alert(1)>"), null);
 assert.equal(listUnsubscribeUrl("<http://example.com/unsubscribe>"), null);
 assert.equal(listUnsubscribeUrl("<https://127.0.0.1/admin>"), null);
