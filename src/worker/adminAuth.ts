@@ -1,4 +1,5 @@
 import { checkPassword, preparePassword } from "./passwordCrypto";
+import { isAdministratorEmail } from "./config";
 import { tryRecordAdminSecurityEvent } from "./adminSecurityAudit";
 async function tokenHash(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
@@ -8,7 +9,6 @@ import { adminPasswordError } from "./mailboxPasswordPolicy";
 
 const COOKIE = "__Host-ltm_admin_pending";
 const AGE = 5 * 60;
-export const ADMIN_ADDRESS = "admin@liamthemo.com";
 function readCookie(request: Request): string | null {
   const match = (request.headers.get("Cookie")??"").split(";").map(x=>x.trim()).find(x=>x.startsWith(COOKIE+"="));
   const result = match?.slice(COOKIE.length+1)??null;
@@ -48,7 +48,7 @@ export async function beginAdminLogin(request: Request, env: Env): Promise<Respo
   if (!(await adminPasswordConfigured(env))) {
     return Response.json({error:"Administrator password setup required"}, {status:409});
   }
-  if (email!==ADMIN_ADDRESS || !(await verifyAdminPassword(env,password))) {
+  if (!isAdministratorEmail(request,email,env.PRIMARY_ADDRESS) || !(await verifyAdminPassword(env,password))) {
     await tryRecordAdminSecurityEvent(env, "admin.login.password", "denied");
     return Response.json({error:"Invalid credentials"},{status:401});
   }
