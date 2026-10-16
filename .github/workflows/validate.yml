@@ -48,7 +48,7 @@ jobs:
         run: python3 scripts/test-mailbox-migration.py
 
       - name: Unsubscribe and sender authorization regressions
-        run: node --experimental-transform-types scripts/test-unsubscribe-and-senders.mjs
+        run: node --experimental-strip-types scripts/test-unsubscribe-and-senders.mjs
 
       - name: Active native sender and compose regression
         run: node scripts/test-compose-sender.mjs
