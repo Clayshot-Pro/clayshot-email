@@ -1363,21 +1363,32 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
     overflow: visible !important;
     padding: 10px max(10px, env(safe-area-inset-right)) 10px max(10px, env(safe-area-inset-left));
     border-top: 1px solid var(--line);
-    background: rgba(255,255,255,.98);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
+    /* Match the dark message reader: the old white fill formed a bright frame. */
+    background: #0e0d0c;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
   }
 
   .reader-reply-bar button {
     width: 100%;
     min-width: 0;
     min-height: 40px;
+    align-items: center;
     justify-content: center;
     gap: 4px;
     padding: 9px 4px;
     font-size: 10px;
+    line-height: 1;
     white-space: nowrap;
     touch-action: manipulation;
+  }
+
+  /* Align text optically to the icon center without moving the icon itself. */
+  .reader-reply-bar .reader-action-label {
+    display: inline-block;
+    line-height: 1;
+    transform: translateY(-1.5px);
   }
 
   .reader-reply-bar button .icon {
