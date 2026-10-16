@@ -108,7 +108,7 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
       </div>
       {isAdmin ? <p className="signin-admin-note">Your registered passkey will be requested after your password.</p> : null}
       <button className="auth-primary signin-submit" type="submit" disabled={pending !== null}>
-        {pending === "custom" ? "Verifying…" : "Sign in to mailbox"}
+        {pending === "custom" ? "Verifying…" : isAdmin ? "Sign in as administrator" : "Sign in to mailbox"}
       </button>
     </form>
     {error ? <p className="auth-error" role="alert">{error}</p> : null}

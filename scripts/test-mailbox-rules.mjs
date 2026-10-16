@@ -18,7 +18,7 @@ assert.equal(suspectedJunk("Lottery winner!!!", "unknown@contest.test", "Click h
 assert.equal(suspectedJunk("Urgent schedule change", "professor@university.ca", "Please see the course schedule"), false);
 console.log("PASS: address normalization and conservative Junk classification");
 
-assert.equal(mailboxPasswordError("correct-horse-battery-staple-2026"),null);
+assert.equal(mailboxPasswordError("correct-horse-battery-2026"),null);
 assert.equal(mailboxPasswordError("Ab1!"), null);
 assert.match(mailboxPasswordError("Ab!") ?? "", /at least 4/);
 assert.match(mailboxPasswordError("X".repeat(33)) ?? "", /at most 32/);
