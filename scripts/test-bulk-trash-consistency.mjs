@@ -93,7 +93,7 @@ const route = readFileSync(new URL("../src/worker/index.ts", import.meta.url), "
 assert.match(worker, /permanentlyDeleteNativeTrashBatch\(env, provider.accountId, ids as string\[\], ctx\)/);
 assert.match(route, /bulkMailAction\(request, env, ctx\)/);
 assert.match(app, /setSelectedMailIds\(\[\]\);\s*setSelectionMode\(false\);\s*await loadMessages/);
-assert.doesNotMatch(app, /setSelectedMailIds\(failed.map/);
+assert.equal(app.includes("setSelectedMailIds(failed.map"), false);
 assert.match(app, /AbortSignal.timeout\(20_000\)/);
 assert.match(app, /current.filter\(id => listed.has\(id\)\)/);
 assert.match(list, /All \$\{visible.length\} shown/);
