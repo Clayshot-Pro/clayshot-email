@@ -1,7 +1,7 @@
 import { mailboxPasswordError } from "./mailboxPasswordPolicy";
 import { preparePassword, checkPassword } from "./passwordCrypto";
 import { isAuthenticated, logout as ownerLogout } from "./auth";
-import { normalizeMailboxAddress } from "./mailboxRules";
+import { mailDomainFromPrimaryAddress, normalizeMailboxAddress } from "./mailboxRules";
 import { adminLoginAddress, isAdministratorEmail, legacyAdminLoginAddress } from "./config";
 import { checkAuthRateLimit, authRateLimitBucket } from "./security";
 
@@ -79,7 +79,8 @@ export async function rotateMailboxPassword(env: Env, id: string): Promise<strin
   return password; // only displayed once to the verified owner.
 }
 async function checkNativePassword(env: Env, address: string, password: string): Promise<string | null> {
-  const normalized = normalizeMailboxAddress(address);
+  const domain = mailDomainFromPrimaryAddress(env.PRIMARY_ADDRESS);
+  const normalized = domain ? normalizeMailboxAddress(address, false, domain) : null;
   const record = normalized ? await env.DB.prepare(`SELECT m.id, c.password_salt, c.password_hash, c.iterations
     FROM native_mailboxes m JOIN native_mailbox_credentials c ON c.mailbox_id=m.id
     WHERE m.email_address=?1 AND m.status='active' AND m.deleted_at IS NULL`)
