@@ -52,6 +52,7 @@ export function App() {
   const [composeAccountId, setComposeAccountId] = useState(NATIVE_ACCOUNT_ID);
   const [files, setFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<"saving" | "saved" | null>(null);
   const [notificationState, setNotificationState] = useState<NotificationState>("checking");
   const [pushPublicKey, setPushPublicKey] = useState<string | null>(null);
@@ -845,6 +846,7 @@ export function App() {
 
   const submitCompose = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setComposeError(null);
     setSending(true);
     try {
       const form = new FormData();
@@ -873,6 +875,7 @@ export function App() {
         localStorage.removeItem(draftSenderKey(compose.draftId));
       }
       setComposeOpen(false);
+      setComposeError(null);
       setCompose(EMPTY_COMPOSE);
       setFiles([]);
       if (composeAccountId !== activeAccountId) {
@@ -884,7 +887,9 @@ export function App() {
       setThread([]);
       setOpeningMessageId(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Email could not be sent");
+      const message = caught instanceof Error ? caught.message : "Email could not be sent";
+      setError(message);
+      setComposeError(message);
     } finally {
       setSending(false);
     }
@@ -983,11 +988,12 @@ export function App() {
         compose={compose}
         files={files}
         sending={sending}
+        sendError={composeError}
         draftStatus={draftStatus}
         accounts={accounts}
         senderAccountId={composeAccountId}
-        onSenderAccountChange={changeComposeAccount}
-        onChange={setCompose}
+        onSenderAccountChange={(id) => { setComposeError(null); changeComposeAccount(id); }}
+        onChange={(next) => { setComposeError(null); setCompose(next); }}
         onFilesChange={setFiles}
         onClose={closeCompose}
         onDiscard={() => void discardCompose()}

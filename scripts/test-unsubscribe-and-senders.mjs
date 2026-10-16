@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { listUnsubscribeUrl, messageUnsubscribeUrl } from "../src/worker/email/unsubscribe.ts";
-import { isNativeSenderAllowed, nativeSendTransportReady } from "../src/worker/providers/senderPolicy.ts";
+import { isNativeSenderAllowed, nativeSendBinding } from "../src/worker/providers/senderPolicy.ts";
 import { sendViaEmailServiceApi } from "../src/worker/providers/emailServiceApi.ts";
 
 assert.equal(listUnsubscribeUrl("<https://list.example.com/u?id=12>, <mailto:remove@example.com>"), "https://list.example.com/u?id=12");
@@ -44,10 +44,14 @@ assert.equal(isNativeSenderAllowed(env, "new@liamthemo.com"), true);
 assert.equal(isNativeSenderAllowed(env, "future@liamthemo.com"), true);
 assert.equal(isNativeSenderAllowed(env, "admin@evil.com"), false);
 assert.equal(isNativeSenderAllowed(env, "bad@evil.com@liamthemo.com"), false);
-assert.equal(nativeSendTransportReady({}, true), true);
-assert.equal(nativeSendTransportReady({}, false), false);
-assert.equal(nativeSendTransportReady({ CF_EMAIL_SENDING_ACCOUNT_ID: "a".repeat(32), CF_EMAIL_SENDING_TOKEN: "private" }, false), true);
-
+// Existing and future native mailboxes must not depend on REST credentials.
+const secondaryBinding = { send: async () => ({ messageId: "mock-dynamic-id" }) };
+const primaryBinding = { send: async () => ({ messageId: "mock-primary-id" }) };
+const mockEnv = { EMAIL: primaryBinding, EMAIL_DYNAMIC: secondaryBinding };
+assert.equal(nativeSendBinding(mockEnv, "native:secondary"), secondaryBinding);
+assert.equal(nativeSendBinding(mockEnv, "native:another-new-mailbox"), secondaryBinding);
+assert.equal(nativeSendBinding(mockEnv, "native:primary"), primaryBinding);
+assert.equal(nativeSendBinding({ EMAIL: primaryBinding }, "native:secondary"), null);
 const accountId = "a".repeat(32);
 const secret = "test-secret-private";
 const creds = { CF_EMAIL_SENDING_ACCOUNT_ID: accountId, CF_EMAIL_SENDING_TOKEN: secret };

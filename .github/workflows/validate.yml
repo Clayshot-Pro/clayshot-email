@@ -50,6 +50,9 @@ jobs:
       - name: Unsubscribe and sender authorization regressions
         run: node --experimental-strip-types scripts/test-unsubscribe-and-senders.mjs
 
+      - name: Active native sender and compose regression
+        run: node scripts/test-compose-sender.mjs
+
       - name: Unsubscribe action visible in every folder
         run: node scripts/test-unsubscribe-ui.mjs
 

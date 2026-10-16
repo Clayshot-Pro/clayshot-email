@@ -37,6 +37,7 @@ interface Env {
   MAIL: R2Bucket;
   ASSETS: Fetcher;
   EMAIL: EmailServiceBinding;
+  EMAIL_DYNAMIC?: EmailServiceBinding;
   CF_EMAIL_SENDING_ACCOUNT_ID?: string;
   CF_EMAIL_SENDING_TOKEN?: string;
   MAILBOX_PURGE_ENABLED?: string;
