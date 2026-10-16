@@ -3,15 +3,20 @@
   "name": "clayshot-pro-email-dev",
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-09-12",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "assets": {
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
   },
   "vars": {
-    "PRIMARY_ADDRESS": "",
-    "FORWARD_TO": ""
+    "PRIMARY_ADDRESS": "contact@clayshotpro.com",
+    "FORWARD_TO": "",
+    "ADMIN_LOGIN_ADDRESS": "admin@clayshotpro.com"
   },
   "d1_databases": [
     {
@@ -30,14 +35,23 @@
   "send_email": [
     {
       "name": "EMAIL",
-      "allowed_sender_addresses": [""]
+      "allowed_sender_addresses": [
+        "contact@clayshotpro.com"
+      ]
     },
     {
       "name": "EMAIL_MULTI"
     }
   ],
-  "triggers": { "crons": ["0 4 * * *"] },
+  "triggers": {
+    "crons": [
+      "0 4 * * *"
+    ]
+  },
   "observability": {
     "enabled": true
-  }
+  },
+  "addresses": [
+    "*@clayshotpro.com"
+  ]
 }
