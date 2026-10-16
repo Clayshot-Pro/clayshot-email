@@ -59,6 +59,9 @@ jobs:
       - name: Dark reader action bar and label alignment regression
         run: node scripts/test-reader-action-bar.mjs
 
+      - name: Mobile footer, bulk selection and custom deletion confirmation
+        run: node --experimental-strip-types scripts/test-reader-bulk-delete.mjs
+
       - name: Per-device mailbox authorization regression
         run: node --experimental-strip-types scripts/test-account-access.mjs
 
