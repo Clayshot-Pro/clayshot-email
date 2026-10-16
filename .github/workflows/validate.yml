@@ -56,6 +56,9 @@ jobs:
       - name: Unsubscribe action visible in every folder
         run: node scripts/test-unsubscribe-ui.mjs
 
+      - name: Dark reader action bar and label alignment regression
+        run: node scripts/test-reader-action-bar.mjs
+
       - name: Per-device mailbox authorization regression
         run: node --experimental-strip-types scripts/test-account-access.mjs
 

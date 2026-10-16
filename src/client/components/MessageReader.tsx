@@ -193,24 +193,24 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
       </article>
 
       <footer className="reader-reply-bar">
-        <button className="reply-primary" type="button" onClick={onReply}><Icon name="reply" size={17}/>Reply</button>
-        <button type="button" onClick={onForward}><Icon name="forward" size={16}/>Forward</button>
-        <button className="unsubscribe-action" type="button" onClick={() => setUnsubscribeOpen(true)}><Icon name="mail" size={16}/>Unsubscribe</button>
+        <button className="reply-primary" type="button" onClick={onReply}><Icon name="reply" size={17}/><span className="reader-action-label">Reply</span></button>
+        <button type="button" onClick={onForward}><Icon name="forward" size={16}/><span className="reader-action-label">Forward</span></button>
+        <button className="unsubscribe-action" type="button" onClick={() => setUnsubscribeOpen(true)}><Icon name="mail" size={16}/><span className="reader-action-label">Unsubscribe</span></button>
         {message.isJunk ? (
-          <button type="button" onClick={() => onPatch({ isJunk: false }, true)}><Icon name="inbox" size={16}/>Not junk</button>
+          <button type="button" onClick={() => onPatch({ isJunk: false }, true)}><Icon name="inbox" size={16}/><span className="reader-action-label">Not junk</span></button>
         ) : !message.isDeleted ? (
-          <button type="button" onClick={() => onPatch({ isArchived: !message.isArchived }, true)}><Icon name="archive" size={16}/>{message.isArchived ? "Unarchive" : "Archive"}</button>
+          <button type="button" onClick={() => onPatch({ isArchived: !message.isArchived }, true)}><Icon name="archive" size={16}/><span className="reader-action-label">{message.isArchived ? "Unarchive" : "Archive"}</span></button>
         ) : null}
         {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
-          <button type="button" onClick={() => onPatch({ isJunk: true }, true)}><Icon name="junk" size={16}/>Junk</button>
+          <button type="button" onClick={() => onPatch({ isJunk: true }, true)}><Icon name="junk" size={16}/><span className="reader-action-label">Junk</span></button>
         ) : null}
         {!message.isDeleted ? (
-          <button className="destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)}><Icon name="trash" size={16}/>Delete</button>
+          <button className="destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)}><Icon name="trash" size={16}/><span className="reader-action-label">Delete</span></button>
         ) : (
-          <button type="button" onClick={() => onPatch({ isDeleted: false }, true)}><Icon name="inbox" size={16}/>Restore</button>
+          <button type="button" onClick={() => onPatch({ isDeleted: false }, true)}><Icon name="inbox" size={16}/><span className="reader-action-label">Restore</span></button>
         )}
         {message.isDeleted && canPermanentlyDelete ? (
-          <button className="destructive" type="button" onClick={onPermanentDelete}><Icon name="trash" size={16}/>Delete forever</button>
+          <button className="destructive" type="button" onClick={onPermanentDelete}><Icon name="trash" size={16}/><span className="reader-action-label">Delete forever</span></button>
         ) : null}
       </footer>
 
