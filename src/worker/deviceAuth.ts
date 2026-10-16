@@ -121,7 +121,7 @@ export async function deviceAccountIds(request: Request, env: Env): Promise<stri
     WHERE g.session_id=?1 AND (
       (g.provider='native' AND n.status='active' AND n.deleted_at IS NULL AND n.email_address NOT IN (?2,?3)) OR
       (g.provider='gmail' AND a.status IN ('active','reauth_required'))
-    )`).bind(session.id, adminLoginAddress(request), legacyAdminLoginAddress(request, env.PRIMARY_ADDRESS) ?? "").all<{account_id:string}>();
+    )`).bind(session.id, adminLoginAddress(request, env.ADMIN_LOGIN_ADDRESS), env.ADMIN_LOGIN_ADDRESS?.trim() ? "" : (legacyAdminLoginAddress(request, env.PRIMARY_ADDRESS) ?? "")).all<{account_id:string}>();
   return items.results.map(i => i.account_id);
 }
 export async function deviceStatus(request: Request, env: Env): Promise<Response> {
@@ -135,7 +135,7 @@ export async function deviceLogin(request: Request, env: Env): Promise<Response>
   const input = await request.json<{ email?: unknown; password?: unknown }>().catch(() => null);
   const email = typeof input?.email === "string" ? input.email : "";
   const password = typeof input?.password === "string" ? input.password : "";
-  if (!email || isAdministratorEmail(request,email,env.PRIMARY_ADDRESS) || password.length > 128) return jsonError("Invalid credentials", 401);
+  if (!email || isAdministratorEmail(request,email,env.PRIMARY_ADDRESS,env.ADMIN_LOGIN_ADDRESS) || password.length > 128) return jsonError("Invalid credentials", 401);
   if (!(await checkAuthRateLimit(env, authRateLimitBucket(request, "native-login")))) {
     return jsonError("Too many attempts. Try again later.", 429);
   }
