@@ -55,7 +55,6 @@ export async function permanentlyDeleteNativeTrashBatch(
     `SELECT id,thread_id,raw_r2_key,body_text,body_html,is_deleted
      FROM messages WHERE mailbox_id=? AND id IN (${placeholders})`
   ).bind(mailboxId, ...ids).all<RemovedRow>();
-  const byId = new Map(rows.results.map(row => [row.id, row]));
   const deletable = rows.results.filter(row => row.is_deleted === 1);
   const failed = rows.results.filter(row => row.is_deleted !== 1)
     .map(row => ({ id: row.id, error: "Message is not in Trash" }));
