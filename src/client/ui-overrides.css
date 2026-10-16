@@ -1782,3 +1782,12 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
     flex: 0 0 34px;
   }
 }
+
+/* Narrow layouts used to hide the second toolbar action. In Trash,
+ * Unsubscribe can be that second action, so explicitly retain it.
+ */
+@media (max-width: 420px) {
+  .reader-actions button.unsubscribe-mobile-action {
+    display: grid !important;
+  }
+}
