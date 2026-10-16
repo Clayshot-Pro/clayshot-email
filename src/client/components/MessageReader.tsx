@@ -106,6 +106,11 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
           {accountId.startsWith("native:") && message.direction === "inbound" && !message.isDeleted && !message.isJunk ? (
             <button className="mobile-reader-action" type="button" onClick={() => onPatch({ isJunk: true }, true)} aria-label="Mark as junk"><Icon name="junk" size={17}/><span>Junk</span></button>
           ) : null}
+          {message.direction === "inbound" && message.unsubscribeUrl ? (
+            <a className="mobile-reader-action" href={message.unsubscribeUrl} target="_blank" rel="noopener noreferrer" aria-label="Open sender unsubscribe page" title="Opens the sender’s unsubscribe page or mail application">
+              <Icon name="mail" size={17}/><span>Unsubscribe</span>
+            </a>
+          ) : null}
           <button className="mobile-reader-action" type="button" onClick={onReply} aria-label="Reply to message"><Icon name="reply" size={17}/><span>Reply</span></button>
           {!message.isDeleted ? (
             <button className="mobile-reader-action destructive" type="button" onClick={() => onPatch({ isDeleted: true }, true)} aria-label="Delete message"><Icon name="trash" size={17}/><span>Delete</span></button>
@@ -173,6 +178,9 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
       <footer className="reader-reply-bar">
         <button className="reply-primary" type="button" onClick={onReply}><Icon name="reply" size={17}/>Reply</button>
         <button type="button" onClick={onForward}><Icon name="forward" size={16}/>Forward</button>
+        {message.direction === "inbound" && message.unsubscribeUrl ? (
+          <a className="unsubscribe-action" href={message.unsubscribeUrl} target="_blank" rel="noopener noreferrer" title="Opens the sender’s unsubscribe page or mail application"><Icon name="mail" size={16}/>Unsubscribe</a>
+        ) : null}
         {message.isJunk ? (
           <button type="button" onClick={() => onPatch({ isJunk: false }, true)}><Icon name="inbox" size={16}/>Not junk</button>
         ) : !message.isDeleted ? (

@@ -47,6 +47,9 @@ jobs:
       - name: Native mailbox migration smoke test
         run: python3 scripts/test-mailbox-migration.py
 
+      - name: Unsubscribe and sender authorization regressions
+        run: node --experimental-strip-types scripts/test-unsubscribe-and-senders.mjs
+
       - name: Per-device mailbox authorization regression
         run: node --experimental-strip-types scripts/test-account-access.mjs
 

@@ -39,14 +39,14 @@
 
 ## 4. Authorize outbound sending from newly created addresses
 
-Cloudflare's published Email Service FAQ says its outgoing service is **intended only for transactional email** (as of October 13, 2026). Ordinary arbitrary personal/business webmail correspondence is **not confirmed as supported**. Do not enable general mailbox sending simply because it works technically.
+Cloudflare Email Service and Workers Paid are separate requirements. Workers Paid does not automatically verify a domain or enable unrestricted native mailbox correspondence. Cloudflare's published Email Sending policy primarily supports transactional email; obtain policy confirmation for your actual use case before enabling additional senders.
 
-1. Ask Cloudflare support/Cloudflare Developers Discord whether **manual two-way, person-to-person correspondence through the site's private owner-only webmail** is allowed using Email Sending.
-2. Verify `liamthemo.com` is onboarded under **Compute > Email Service > Email Sending** and confirm SPF/DKIM, bounce configuration and DMARC. This is domain-level; you do not need separate DNS records for every sender address.
-3. The `v2.00` Wrangler config preserves the restricted `EMAIL` binding for `contact@liamthemo.com` and defines a separate `EMAIL_MULTI` binding with no sender-address allowlist. Both send only using an onboarded domain. **Never put a Cloudflare account-level Email Sending API token in the browser or expose it to mailbox users.**
-4. After written policy approval and verified deployment, set a Worker **secret/variable** named `MULTI_SENDER_APPROVED` to exactly `true` for `ltm-email-service`. This is deliberately **not in `wrangler.jsonc`** so source-control changes cannot enable it by accident. Leave it unset/false until approved.
-5. Test sending from **each created address**, including From, Reply-To, replies, DKIM/SPF/DMARC, rate limit response, bounce handling, attachment size and the Sent folder. The application enforces owner session, active mailbox status, sending idempotency, per-mailbox rate and quota controls.
-6. If Cloudflare does **not** approve ordinary correspondence, keep `MULTI_SENDER_APPROVED` unset. General-purpose outbound from new addresses cannot meet the original Cloudflare-only requirement under that restriction; reconsider scope/provider rather than bypassing policy.
+1. Verify the domain of every native sender under **Compute > Email Service > Email Sending**, including required SPF, DKIM, DMARC and bounce handling. Confirm sending is activated in the **same Cloudflare account** as the Worker.
+2. In **Workers Builds > Build Variables/Secrets**, configure `CLOUDFLARE_NATIVE_SENDERS` as the exact authorized non-primary email addresses (comma-separated). Do not specify a wildcard, entire domain, password or token. For instance, `support@example.com,info@example.com`. This is a **build-time** value, not a Worker runtime secret.
+3. A production build on `main` injects that allowlist into `EMAIL_MULTI.allowed_sender_addresses` and sets the server-side `CUSTOM_SENDER_ALLOWLIST`. Keep the primary sender in `EMAIL`. Build previews cannot perform this production hydration.
+4. The legacy `MULTI_SENDER_APPROVED` switch is deprecated and does not itself authorize any custom sender. Mailbox creation alone also does not grant sending permission.
+5. Verify Cloudflare Email Service limitations and account sending quotas. Test a single authorized message and inspect the masked transport error code if it fails. Test DKIM/SPF/DMARC, replies, bounce handling, per-mailbox idempotency and local Sent state.
+6. If Cloudflare does not support your intended person-to-person messages, do not circumvent that restriction; use a provider that explicitly permits it.
 
 [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/) · [Sending bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/)
 
@@ -73,7 +73,7 @@ Cloudflare's published Email Service FAQ says its outgoing service is **intended
 
 **Required before production promotion:** verified D1+R2 backup/restore; confirm Cloudflare main-only branch controls; inspect Cloudflare Email Routing; obtain Cloudflare Email Sending policy decision.
 
-**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, activate `MULTI_SENDER_APPROVED` and run send tests.
+**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, set `CLOUDFLARE_NATIVE_SENDERS` in the Cloudflare build environment, redeploy `main`, and run send tests.
 
 **Optional:** `MAILBOX_PURGE_ENABLED=true` after backups.
 

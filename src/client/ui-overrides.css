@@ -1682,3 +1682,43 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
   background: linear-gradient(180deg, #ffb15e, #ff8738);
   color: #1b0f08;
 }
+
+/* Native unsubscribe links mirror the message action controls. */
+.reader-reply-bar a.unsubscribe-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #302a25;
+  border-radius: 8px;
+  background: #171412;
+  color: #aaa098;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.reader-reply-bar a.unsubscribe-action:hover {
+  border-color: #4c4037;
+  background: #211c18;
+  color: #f4ebe4;
+}
+.reader-actions a.mobile-reader-action {
+  text-decoration: none;
+  color: inherit;
+}
+@media (max-width: 760px) {
+  .reader-reply-bar a.unsubscribe-action {
+    display: none;
+  }
+  .reader-actions a.mobile-reader-action {
+    flex: 0 0 34px;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+  .reader-actions a.mobile-reader-action span {
+    display: none;
+  }
+}
