@@ -1,4 +1,5 @@
 import type { MailProvider, ProviderListOptions, ProviderMessage, ProviderMutation, ProviderSendInput, ProviderSendResult } from "./types";
+import { sendViaEmailServiceApi } from "./emailServiceApi";
 
 type NativeMessageRow = {
   id: string;
@@ -127,8 +128,16 @@ export class NativeMailProvider implements MailProvider {
   }
 
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
-    const transport = this.accountId === "native:primary" ? this.env.EMAIL : this.env.EMAIL_MULTI;
-    const result = await transport.send({
+    // The REST API is domain-scoped rather than a static per-address sender list.
+    // It lets newly created, authenticated native mailboxes send immediately.
+    if (this.env.CF_EMAIL_SENDING_ACCOUNT_ID && this.env.CF_EMAIL_SENDING_TOKEN) {
+      return sendViaEmailServiceApi(this.env, this.address, this.senderName, input);
+    }
+    // Preserve the original primary sender until Email Service credentials are configured.
+    if (this.accountId !== "native:primary") {
+      throw Object.assign(new Error("Email API not configured"), { code: "E_EMAIL_API_NOT_CONFIGURED" });
+    }
+    const result = await this.env.EMAIL.send({
       from: { email: this.address, name: this.senderName },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,
