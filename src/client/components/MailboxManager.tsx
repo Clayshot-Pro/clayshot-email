@@ -191,7 +191,7 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
       <div className="admin-mailbox-create">
         <div className="admin-subsection-heading">
           <h3>Create an address</h3>
-          <p>A secure password will be generated for the new mailbox.</p>
+          <p>A secure password will be generated for the new mailbox. The first address becomes the protected primary mailbox and cannot be disabled or deleted.</p>
         </div>
         <form className="mailbox-create-form" onSubmit={e => void create(e)}>
           <label htmlFor="new-mailbox-address">

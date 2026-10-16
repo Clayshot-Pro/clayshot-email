@@ -19,12 +19,17 @@ export async function healthResponse(env: Env): Promise<Response> {
   }
 
   const ok = checks.d1 && checks.r2;
+  const primary = checks.d1
+    ? await env.DB.prepare(
+        "SELECT email_address FROM native_mailboxes WHERE id='native:primary' AND status='active' AND deleted_at IS NULL"
+      ).first<{ email_address: string }>().catch(() => null)
+    : null;
 
   return Response.json(
     {
       ok,
       service: "clayshot-pro-email-dev",
-      address: env.PRIMARY_ADDRESS,
+      address: primary?.email_address ?? null,
       checks,
       timestamp: new Date().toISOString(),
     },
