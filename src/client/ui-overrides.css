@@ -1901,3 +1901,14 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
 @media (max-width: 420px) {
   .delete-confirm-panel { padding: 18px; }
 }
+
+/* Bulk-action outcomes and loaded-page scope: avoid misleading "Select All"
+ * when native Trash contains more than the 50 currently retrieved rows. */
+.mail-bulk-notice {
+  flex: 1 1 160px;
+  min-width: 0;
+  color: #f2b17a;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.mail-select-all span, .mail-selection-count { line-height: 1.4; }
