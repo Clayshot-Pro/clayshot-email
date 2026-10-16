@@ -62,6 +62,9 @@ jobs:
       - name: Mobile footer, bulk selection and custom deletion confirmation
         run: node --experimental-strip-types scripts/test-reader-bulk-delete.mjs
 
+      - name: Native bulk Trash atomicity and mobile selection recovery
+        run: node --experimental-strip-types scripts/test-bulk-trash-consistency.mjs
+
       - name: Per-device mailbox authorization regression
         run: node --experimental-strip-types scripts/test-account-access.mjs
 
