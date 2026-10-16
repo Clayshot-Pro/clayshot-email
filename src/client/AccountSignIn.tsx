@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { unlockOwnerPasskey } from "./adminPasskey";
+import { isAdminLoginEmail } from "./adminIdentity";
 
 export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: () => void; showGoogle?: boolean }) {
   const [email, setEmail] = useState("");
@@ -10,7 +11,7 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
   // Administrator mailboxes are a distinct authentication identity. Routing
   // any admin@ address to the admin endpoint also retains the legacy alias
   // when a Worker moves from a parent-domain to a subdomain login.
-  const isAdmin = /^admin@[^\\s@]+$/i.test(email.trim());
+  const isAdmin = isAdminLoginEmail(email);
 
   async function addGoogle() {
     setPending("google"); setError("");
@@ -90,8 +91,8 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
-            minLength={isAdmin ? 8 : 16}
-            maxLength={isAdmin ? 32 : 128}
+            minLength={1}
+            maxLength={128}
             required
           />
           <button
