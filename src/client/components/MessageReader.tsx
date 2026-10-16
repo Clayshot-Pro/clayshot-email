@@ -179,7 +179,7 @@ export function MessageReader({ message, thread, folderLabel, loading = false, a
         <button className="reply-primary" type="button" onClick={onReply}><Icon name="reply" size={17}/>Reply</button>
         <button type="button" onClick={onForward}><Icon name="forward" size={16}/>Forward</button>
         {message.direction === "inbound" && message.unsubscribeUrl ? (
-          <a href={message.unsubscribeUrl} target="_blank" rel="noopener noreferrer" title="Opens the sender’s unsubscribe page or mail application"><Icon name="mail" size={16}/>Unsubscribe</a>
+          <a className="unsubscribe-action" href={message.unsubscribeUrl} target="_blank" rel="noopener noreferrer" title="Opens the sender’s unsubscribe page or mail application"><Icon name="mail" size={16}/>Unsubscribe</a>
         ) : null}
         {message.isJunk ? (
           <button type="button" onClick={() => onPatch({ isJunk: false }, true)}><Icon name="inbox" size={16}/>Not junk</button>
