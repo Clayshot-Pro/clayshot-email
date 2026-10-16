@@ -1682,3 +1682,16 @@ body { background: radial-gradient(circle at 26% 2%, #201813 0, #0d0c0b 35%); co
   background: linear-gradient(180deg, #ffb15e, #ff8738);
   color: #1b0f08;
 }
+
+/* Keep Cloudflare delivery failures visible in Clayshot Compose. */
+.compose-send-error {
+  margin: 4px 16px 8px;
+  padding: 10px 12px;
+  border: 1px solid #9c4b3c;
+  border-radius: 8px;
+  background: #382019;
+  color: #ffcabf;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}

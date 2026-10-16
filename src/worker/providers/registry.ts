@@ -1,6 +1,7 @@
 import { gmailProvider } from "./gmailProvider";
 import { nativeProvider } from "./native";
 import { allNativeMailboxes, mailboxById, PRIMARY_MAILBOX_ID } from "../mailboxes";
+import { normalizeMailboxAddress } from "../mailboxRules";
 import type { MailProvider, MailProviderKind } from "./types";
 
 export type ConnectedAccount = {
@@ -66,7 +67,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: box.id === NATIVE_ACCOUNT_ID ? primaryAvatarUrl : null,
       status: box.status,
       lastSyncedAt: null,
-      sendEnabled: env.MULTI_SENDER_APPROVED === "true",
+      sendEnabled: normalizeMailboxAddress(box.email_address, true) === box.email_address.trim().toLowerCase(),
     })),
     ...result.results.map((row) => ({
       id: row.id,
