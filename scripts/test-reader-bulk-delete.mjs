@@ -21,7 +21,8 @@ const dialog = readFileSync(new URL("../src/client/components/DeleteConfirmation
 assert.match(app, /toggleVisibleSelection\(current, ids\)/);
 assert.match(app, /for \(const batch of chunkBulkMessageIds\(requestedIds\)\)/);
 assert.match(app, /body: JSON.stringify\(\{ ids: batch, action \}\)/);
-assert.match(app, /setSelectedMailIds\(failed.map\(item => item.id\)\)/);
+assert.match(app, /setSelectedMailIds\\(\\[\\]\\);\\s*setSelectionMode\\(false\\)/);
+assert.doesNotMatch(app, /setSelectedMailIds\\(failed.map/);
 assert.doesNotMatch(app, /current.length < 50/);
 assert.doesNotMatch(app, /!confirm\("Permanently delete/);
 assert.match(app, /<DeleteConfirmationDialog/);
