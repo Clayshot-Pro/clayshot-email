@@ -37,18 +37,20 @@
 
 [Cloudflare routing rules](https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/) · [Catch-all API behavior](https://developers.cloudflare.com/api/resources/email_routing/)
 
-## 4. Authorize outbound sending from newly created addresses
+## 4. Enable automatic sending from all active native mailboxes
 
-Cloudflare Email Service and Workers Paid are separate requirements. Workers Paid does not automatically verify a domain or enable unrestricted native mailbox correspondence. Cloudflare's published Email Sending policy primarily supports transactional email; obtain policy confirmation for your actual use case before enabling additional senders.
+Cloudflare Workers Paid is not the same as Email Service sender-domain onboarding. Cloudflare currently documents Email Sending for transactional messages; verify its policy fits your use case.
 
-1. Verify the domain of every native sender under **Compute > Email Service > Email Sending**, including required SPF, DKIM, DMARC and bounce handling. Confirm sending is activated in the **same Cloudflare account** as the Worker.
-2. In **Workers Builds > Build Variables/Secrets**, configure `CLOUDFLARE_NATIVE_SENDERS` as the exact authorized non-primary email addresses (comma-separated). Do not specify a wildcard, entire domain, password or token. For instance, `support@example.com,info@example.com`. This is a **build-time** value, not a Worker runtime secret.
-3. A production build on `main` injects that allowlist into `EMAIL_MULTI.allowed_sender_addresses` and sets the server-side `CUSTOM_SENDER_ALLOWLIST`. Keep the primary sender in `EMAIL`. Build previews cannot perform this production hydration.
-4. The legacy `MULTI_SENDER_APPROVED` switch is deprecated and does not itself authorize any custom sender. Mailbox creation alone also does not grant sending permission.
-5. Verify Cloudflare Email Service limitations and account sending quotas. Test a single authorized message and inspect the masked transport error code if it fails. Test DKIM/SPF/DMARC, replies, bounce handling, per-mailbox idempotency and local Sent state.
-6. If Cloudflare does not support your intended person-to-person messages, do not circumvent that restriction; use a provider that explicitly permits it.
+1. Onboard the sending domain in **Compute > Email Service > Email Sending** and verify SPF/DKIM, DMARC and bounce routing in the **same account** as this Worker.
+2. Create a **Cloudflare account-scoped token** with **Email Sending: Edit**. Add it as the Worker's runtime secret `CF_EMAIL_SENDING_TOKEN` (not a build secret and never in the repository).
+3. The `main` production build takes the already configured `CLOUDFLARE_ACCOUNT_ID` and injects it into the Worker runtime as `CF_EMAIL_SENDING_ACCOUNT_ID` (account ID only, no credential). Standalone deployments must configure this runtime variable.
+4. Redeploy `main` once. The Worker now uses Cloudflare's authenticated Email Sending REST API for native mailboxes and validates the **active mailbox account from D1** before each send. Newly created active mailboxes on the configured domain are enabled automatically; no per-mailbox build change, wildcard or dynamic Worker binding update is required.
+5. Test outgoing mail from primary and new native mailboxes, replies, attachments, bounces, rate limits, and failure recovery. REST API sends do not provide a Workers-binding message ID; the application records local sent attempts and does not auto-retry ambiguous sends.
+6. If the actual correspondence is not permitted by Cloudflare's policy, retain the authenticated mailbox and use a compliant outbound provider.
 
-[Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/) · [Sending bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/)
+The original `EMAIL` Worker binding is retained only as the primary mailbox's fallback during migration. The obsolete `EMAIL_MULTI` binding and `CLOUDFLARE_NATIVE_SENDERS` per-address allowlist are removed.
+
+[Cloudflare Email Sending REST API](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/) · [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/)
 
 ## 5. Optional automated retention
 
@@ -73,7 +75,7 @@ Cloudflare Email Service and Workers Paid are separate requirements. Workers Pai
 
 **Required before production promotion:** verified D1+R2 backup/restore; confirm Cloudflare main-only branch controls; inspect Cloudflare Email Routing; obtain Cloudflare Email Sending policy decision.
 
-**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, set `CLOUDFLARE_NATIVE_SENDERS` in the Cloudflare build environment, redeploy `main`, and run send tests.
+**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, set the runtime `CF_EMAIL_SENDING_TOKEN` secret once, deploy `main`, and test any active native mailbox.
 
 **Optional:** `MAILBOX_PURGE_ENABLED=true` after backups.
 
