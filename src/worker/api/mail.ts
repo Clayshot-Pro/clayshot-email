@@ -182,11 +182,15 @@ export async function listMessages(request: Request, env: Env): Promise<Response
     return Response.json({ folder, ...counts, accountId: provider.accountId, messages: result.results.map((row) => toDraftListItem(row, provider.address)) });
   }
 
-  const [counts, messages] = await Promise.all([
+  const [counts, messages, trashTotal] = await Promise.all([
     mailboxCounts(env, provider.accountId),
     provider.listMessages({ folder: folder as MailFolder, search, limit }),
+    folder === "trash" && provider.kind === "native"
+      ? env.DB.prepare("SELECT COUNT(*) AS count FROM messages WHERE mailbox_id=?1 AND is_deleted=1")
+        .bind(provider.accountId).first<{count:number}>()
+      : Promise.resolve(null),
   ]);
-  return Response.json({ folder, ...counts, accountId: provider.accountId, messages });
+  return Response.json({ folder, ...counts, folderTotalCount: trashTotal?.count ?? null, accountId: provider.accountId, messages });
 }
 
 function detailFrom(row: MessageRow, attachments: AttachmentRow[], unsubscribeUrl: string | null = null) {
