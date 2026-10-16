@@ -100,7 +100,7 @@ Do not switch WebAuthn RP ID to `clayshotpro.com`.
 
 1. Open `https://email.clayshot-dev.com` on the final secure host.
 2. Enter `AUTH_SETUP_TOKEN` and register a *new* administrator passkey.
-3. Set the administrator password (8–32 characters), then log out.
+3. Set the administrator password (4–32 characters), then log out.
 4. Log in using **`admin@clayshotpro.com`**, the password and passkey.
    Confirm sensitive admin changes require fresh passkey approval and
    security activity is recorded.
