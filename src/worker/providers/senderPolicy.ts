@@ -9,3 +9,11 @@ export function isNativeSenderAllowed(env: { PRIMARY_ADDRESS: string }, email: s
   return suffix.length > 1 && address.endsWith(suffix) && address.indexOf("@") === address.lastIndexOf("@");
 }
 
+
+/** Select the Cloudflare binding for an authenticated native mailbox. */
+export function nativeSendBinding(
+  env: { EMAIL: EmailServiceBinding; EMAIL_DYNAMIC?: EmailServiceBinding },
+  accountId: string,
+): EmailServiceBinding | null {
+  return accountId === "native:primary" ? env.EMAIL : env.EMAIL_DYNAMIC ?? null;
+}
