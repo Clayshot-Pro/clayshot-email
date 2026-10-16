@@ -133,8 +133,8 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
   }
 
   async function submitCustomPassword(box: Mailbox) {
-    if (customPassword.length < 16 || customPassword.length > 128) {
-      setNotice("Choose a password between 16 and 128 characters"); return;
+    if (customPassword.length < 4 || customPassword.length > 32) {
+      setNotice("Choose a password between 4 and 32 characters"); return;
     }
     if (customPassword !== confirmPassword) {
       setNotice("The confirmation does not match the new password"); return;
@@ -253,17 +253,17 @@ export function MailboxManager({ onChanged }: { onChanged: () => void }) {
                   }}>
                     <label htmlFor={`password-${box.id}`}>New password
                       <input id={`password-${box.id}`} type={showPassword?"text":"password"}
-                        autoComplete="new-password" minLength={16} maxLength={128} value={customPassword}
+                        autoComplete="new-password" minLength={4} maxLength={32} value={customPassword}
                         onChange={event=>setCustomPassword(event.target.value)} required/>
                     </label>
                     <label htmlFor={`confirm-${box.id}`}>Confirm password
                       <input id={`confirm-${box.id}`} type={showPassword?"text":"password"}
-                        autoComplete="new-password" minLength={16} maxLength={128} value={confirmPassword}
+                        autoComplete="new-password" minLength={4} maxLength={32} value={confirmPassword}
                         onChange={event=>setConfirmPassword(event.target.value)} required/>
                     </label>
                     <label className="mailbox-password-show"><input type="checkbox" checked={showPassword}
                       onChange={event=>setShowPassword(event.target.checked)}/> Show passwords</label>
-                    <small>At least 16 characters. Updating this password signs out devices using this mailbox.</small>
+                    <small>4–32 characters. Updating this password signs out devices using this mailbox.</small>
                     <button className="settings-primary" type="submit" disabled={busy!==null}>Update password</button>
                   </form>
                 ) : null}
