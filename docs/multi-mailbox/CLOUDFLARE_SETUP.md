@@ -2,7 +2,7 @@
 
 **Status:** Manual production steps. The GitHub implementation is not permission to deploy or change the live Email Routing rules before backups and validation. The latest implementation code lives on the permanent `v2.00` version line.
 
-**Service:** `ltm-email-service` / `email.liamthemo.com` / `liamthemo.com` / Workers Paid / D1 `ltm-email-service` / R2 `ltm-email-service-mail`.
+**Service:** `clayshot-pro-email-dev` / `email.clayshot-dev.com` / mail domain `clayshotpro.com` / Cloudflare Workers / D1 `clayshot-pro-email-dev` / R2 `clayshot-pro-email-dev-mail`.
 
 ## 1. Confirm safe Cloudflare Builds settings
 
@@ -43,10 +43,10 @@ Cloudflare's published Email Service FAQ says its outgoing service is **intended
 
 1. Ask Cloudflare support/Cloudflare Developers Discord whether **manual two-way, person-to-person correspondence through the site's private owner-only webmail** is allowed using Email Sending.
 2. Verify `liamthemo.com` is onboarded under **Compute > Email Service > Email Sending** and confirm SPF/DKIM, bounce configuration and DMARC. This is domain-level; you do not need separate DNS records for every sender address.
-3. The `v2.00` Wrangler config preserves the restricted `EMAIL` binding for `contact@liamthemo.com` and defines a separate `EMAIL_MULTI` binding with no sender-address allowlist. Both send only using an onboarded domain. **Never put a Cloudflare account-level Email Sending API token in the browser or expose it to mailbox users.**
-4. After written policy approval and verified deployment, set a Worker **secret/variable** named `MULTI_SENDER_APPROVED` to exactly `true` for `ltm-email-service`. This is deliberately **not in `wrangler.jsonc`** so source-control changes cannot enable it by accident. Leave it unset/false until approved.
+3. The Clayshot Wrangler config has a single `EMAIL_MULTI` binding without a static sender-address allowlist. Sending identity comes from active, authenticated `native_mailboxes` records and must belong to `clayshotpro.com`. Cloudflare Email Sending requires the Clayshot sender domain to be onboarded. **Never expose a Cloudflare API token to the browser or mailbox users.**
+4. All active Clayshot native mailboxes are now automatically eligible to **attempt sending**; the retired `MULTI_SENDER_APPROVED` flag no longer disables the Send button or rejects requests. Successful delivery remains contingent on Cloudflare sending-domain onboarding, destination eligibility, limits, and approved use case.
 5. Test sending from **each created address**, including From, Reply-To, replies, DKIM/SPF/DMARC, rate limit response, bounce handling, attachment size and the Sent folder. The application enforces owner session, active mailbox status, sending idempotency, per-mailbox rate and quota controls.
-6. If Cloudflare does **not** approve ordinary correspondence, keep `MULTI_SENDER_APPROVED` unset. General-purpose outbound from new addresses cannot meet the original Cloudflare-only requirement under that restriction; reconsider scope/provider rather than bypassing policy.
+6. Cloudflare supports transactional sending and does not confirm unrestricted person-to-person webmail as an eligible use case. If Cloudflare does not approve the intended correspondence, use an approved email provider or request explicit confirmation instead of attempting to evade Cloudflare policy.
 
 [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/) · [Sending bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/)
 
@@ -73,7 +73,7 @@ Cloudflare's published Email Service FAQ says its outgoing service is **intended
 
 **Required before production promotion:** verified D1+R2 backup/restore; confirm Cloudflare main-only branch controls; inspect Cloudflare Email Routing; obtain Cloudflare Email Sending policy decision.
 
-**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, activate `MULTI_SENDER_APPROVED` and run send tests.
+**Required after safe production promotion:** verify catch-all routing to the Clayshot Worker, external receive/rejection tests, Cloudflare sender-domain onboarding, and a live outbound test with a permitted destination. Successful build is not proof of delivery.
 
 **Optional:** `MAILBOX_PURGE_ENABLED=true` after backups.
 
