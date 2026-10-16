@@ -236,10 +236,10 @@ Official references: [Workers Builds configuration](https://developers.cloudflar
 Open the **final HTTPS Worker hostname**, not a temporary preview address:
 
 1. On the initial sign-in screen choose **Create administrator passkey**, enter your private `AUTH_SETUP_TOKEN` and register your device's passkey.
-2. The newly registered owner session opens **Email administration**. Set an administrator password of **8–32 characters**. This invalidates previous owner sessions.
+2. The newly registered owner session opens **Email administration**. Set an administrator password of **4–32 characters**. This invalidates previous owner sessions.
 3. Sign in again using `admin@YOUR-WORKER-HOST`, the administrator password, and your passkey.
 4. Sensitive admin actions require **fresh passkey verification**. Test a harmless mailbox setting update and confirm an event appears in **Security activity**.
-5. Create or configure a native mailbox password if you want to sign in to that mailbox without an owner session. Native mailbox passwords are **16–128 characters**.
+5. Create or configure a native mailbox password if you want to sign in to that mailbox without an owner session. Native mailbox passwords are **4–32 characters**.
 6. Securely store the administrator password and the passkey/recovery material. There is **no public administrator password-reset or passkey-bypass recovery route**. Do not remove D1 authentication records as an improvised recovery procedure.
 
 The older `admin@liamthemo.com` username is a compatibility alias **only** on the original host under that configured mail domain; new unrelated deployments use the derived hostname address.
@@ -273,7 +273,7 @@ The `/api/health` endpoint reports D1/R2 status but is under the authenticated A
 | Production build cannot read Worker settings | Check `CLOUDFLARE_ACCOUNT_ID`, API token permissions, Worker name and presence of exactly one `DB` binding. |
 | D1 tables missing / admin setup reports a server error | Verify the **remote migrations ran in the intended account/database** and review the private Cloudflare build log, without logging credentials or mail contents. |
 | Worker loads but mail never arrives | Verify Email Routing DNS records, exact/catch-all rule precedence, Worker email-handler destination, and registered active native mailbox address. |
-| `Invalid credentials` for your new admin login | Use `admin@<actual-worker-hostname>` (not automatically the native mail domain), and verify the password was initially configured. |
+| `Invalid credentials` for your new admin login | Use `admin@clayshotpro.com` (the configured `ADMIN_LOGIN_ADDRESS`) and verify the original administrator password. The password must then be followed by a passkey. |
 | Passkey fails after changing hostnames | RP IDs differ. Return to the original host or use a planned owner-controlled recovery/migration path; passkeys do not silently migrate. |
 | Google reports `redirect_uri_mismatch` | Add the **exact** generated callback URI in the Google Cloud OAuth client. |
 | Gmail connection fails or requires reconnecting | Verify OAuth scope/consent testing status, Google secrets, encrypted key availability and browser cookie state. |

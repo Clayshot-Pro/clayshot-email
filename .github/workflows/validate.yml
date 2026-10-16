@@ -59,6 +59,9 @@ jobs:
       - name: Administrator privilege boundary and session policy regression
         run: node --experimental-strip-types scripts/test-admin-auth-boundary.mjs
 
+      - name: Administrator sign-in routing regression
+        run: node --experimental-strip-types scripts/test-admin-login-routing.mjs
+
       - name: Portable administrator host and authentication origin regression
         run: node --experimental-strip-types scripts/test-portable-origin.mjs
 
