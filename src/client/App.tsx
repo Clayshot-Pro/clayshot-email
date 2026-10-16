@@ -48,6 +48,8 @@ export function App() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMailIds, setSelectedMailIds] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+  const [folderTotalCount, setFolderTotalCount] = useState<number | null>(null);
   const [pendingDeletion, setPendingDeletion] = useState<{
     kind: "single" | "bulk" | "draft";
     ids: string[];
@@ -197,10 +199,12 @@ export function App() {
           messages: MessageListItem[];
           unreadCount: number;
           draftCount: number;
+          folderTotalCount?: number | null;
         };
         if (requestId !== listRequest.current) return;
         const guarded = applyMailMutationShields(activeFolder, activeAccountId, data.messages, mutationShields.current);
         setMessages(guarded);
+        setFolderTotalCount(typeof data.folderTotalCount === "number" ? data.folderTotalCount : null);
         const visibleIds = new Set(guarded.map(item => item.id));
         const shieldedUnread = data.messages.filter(item =>
           !visibleIds.has(item.id) && item.direction === "inbound" && !item.isRead).length;
@@ -272,6 +276,8 @@ export function App() {
     setSelectionMode(false);
     setSelectedMailIds([]);
     setPendingDeletion(null);
+    setBulkNotice(null);
+    setFolderTotalCount(null);
     setUnreadCount(0);
     setDraftCount(0);
     setLoading(true);
@@ -332,6 +338,8 @@ export function App() {
     setSelectionMode(false);
     setSelectedMailIds([]);
     setPendingDeletion(null);
+    setBulkNotice(null);
+    setFolderTotalCount(null);
     setFolder(nextFolder);
     setSelected(null);
     setThread([]);
@@ -649,6 +657,17 @@ export function App() {
     }
   };
 
+  // Mailbox refreshes can replace the first page and remove permanently
+  // deleted records. Never keep dangling selected IDs after a completed edit.
+  useEffect(() => {
+    if (!selectionMode || bulkBusy) return;
+    const listed = new Set(messages.map(item => item.id));
+    setSelectedMailIds(current => {
+      const next = current.filter(id => listed.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [messages, selectionMode, bulkBusy]);
+
   const toggleMailSelection = (id: string) => {
     if (bulkBusy) return;
     setSelectedMailIds((current) => current.includes(id)
@@ -680,6 +699,7 @@ export function App() {
     const requestedIds = [...new Set(ids)];
     setBulkBusy(true);
     setError(null);
+    setBulkNotice(null);
     const flags: MailMutationFlags =
       action === "trash" ? { isDeleted: true } :
       action === "restore" ? { isDeleted: false } :
@@ -714,6 +734,7 @@ export function App() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ ids: batch, action }),
+              signal: AbortSignal.timeout(20_000),
             },
           );
           const result = await response.json() as {
@@ -749,13 +770,21 @@ export function App() {
         setThread([]);
         setOpeningMessageId(null);
       }
-      setSelectedMailIds(failed.map(item => item.id));
-      if (!failed.length) setSelectionMode(false);
+      // Always exit selection mode after a completed attempt, including
+      // partial failures. A permanently removed message must never remain
+      // checked or count toward a future bulk action.
+      setSelectedMailIds([]);
+      setSelectionMode(false);
       await loadMessages(folder, search, true);
-      if (failed.length) setError(
-        `${failed.length} of ${requestedIds.length} message(s) could not be updated: ${failed[0].error}`
-      );
+      if (failed.length) {
+        setError(`${succeeded.length} updated; ${failed.length} could not be updated: ${failed[0].error}. Select the remaining messages to retry.`);
+      } else {
+        setBulkNotice(`${succeeded.length} message(s) ${action === "permanent" ? "permanently deleted" : action === "trash" ? "moved to Trash" : "updated"}. More messages may appear from the next page.`);
+      }
     } finally {
+      // A timed-out or interrupted batch must not leave every checkbox
+      // permanently disabled. Refresh the authoritative server state so
+      // already-committed deletes can be reconciled.
       setBulkBusy(false);
     }
   };
@@ -978,10 +1007,14 @@ export function App() {
           selectionMode={selectionMode}
           selectedIds={selectedMailIds}
           bulkBusy={bulkBusy}
+          folderTotalCount={folderTotalCount}
+          bulkNotice={bulkNotice}
           canPermanentlyDelete={accounts.find((account) => account.id === activeAccountId)?.provider === "native"}
           onToggleSelection={() => {
+            if (bulkBusy) return;
             setSelectionMode((current) => !current);
             setSelectedMailIds([]);
+            setBulkNotice(null);
           }}
           onToggleMailSelected={toggleMailSelection}
           onToggleSelectAll={toggleAllMailSelection}
