@@ -1,5 +1,6 @@
 import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
+import { normalizeMailboxAddress } from "../mailboxRules";
 
 type ReplyTarget = {
   id: string;
@@ -175,9 +176,11 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  // Inbound mailbox creation does not authorize Cloudflare outbound sending.
-  if (provider.kind === "native" && env.MULTI_SENDER_APPROVED !== "true") {
-    return Response.json({ error: "Sending from this mailbox is not enabled yet" }, { status: 403 });
+  // Sender identity is resolved from the authenticated active mailbox in D1.
+  // Never accept an arbitrary client-supplied From address or off-domain sender.
+  if (provider.kind === "native"
+      && normalizeMailboxAddress(provider.address, true) !== provider.address.trim().toLowerCase()) {
+    return Response.json({ error: "Mailbox sender domain is not configured for Cloudflare Email Sending" }, { status: 403 });
   }
   const to = splitRecipients(form.get("to"));
   const cc = splitRecipients(form.get("cc"));
