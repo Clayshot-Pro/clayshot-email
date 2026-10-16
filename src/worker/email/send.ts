@@ -1,6 +1,6 @@
 import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
-import { isNativeSenderAllowed } from "../providers/senderPolicy";
+import { isNativeSenderAllowed, nativeSendTransportReady } from "../providers/senderPolicy";
 
 type ReplyTarget = {
   id: string;
@@ -34,6 +34,12 @@ const MAX_RECIPIENTS = 50;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SAFE_DELIVERY_CODES = new Set([
   "E_RECIPIENT_NOT_ALLOWED",
+  "E_EMAIL_API_NOT_CONFIGURED",
+  "E_EMAIL_API_AUTH_FAILED",
+  "E_EMAIL_API_FORBIDDEN",
+  "E_EMAIL_SERVICE_NOT_ENTITLED",
+  "E_EMAIL_SENDING_DISABLED",
+  "E_EMAIL_DELIVERY_UNKNOWN",
   "E_SENDER_NOT_VERIFIED",
   "E_RECIPIENT_SUPPRESSED",
   "E_SENDER_DOMAIN_NOT_AVAILABLE",
@@ -89,6 +95,14 @@ function safeDeliveryError(error: unknown): string {
 }
 
 function userDeliveryError(code: string): string {
+  if (code === "E_EMAIL_API_NOT_CONFIGURED") return "Email Sending API credentials are not configured";
+  if (code === "E_EMAIL_API_AUTH_FAILED" || code === "E_EMAIL_API_FORBIDDEN") {
+    return "Cloudflare Email Sending API credentials are invalid or lack Email Sending permission";
+  }
+  if (code === "E_EMAIL_SERVICE_NOT_ENTITLED" || code === "E_EMAIL_SENDING_DISABLED") {
+    return "Cloudflare Email Sending is not enabled for this account or domain";
+  }
+  if (code === "E_EMAIL_DELIVERY_UNKNOWN") return "Email delivery status is unknown. Check sent activity before retrying";
   if (code === "E_RECIPIENT_SUPPRESSED") {
     return "Recipient cannot currently receive this email";
   }
@@ -183,13 +197,12 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  // Cloudflare Email Service requires an explicit sender allowlist for
-  // non-verified recipients. Do not let any mailbox impersonate an address
-  // merely because that mailbox was created in D1.
+  // D1 resolves the authenticated, active mailbox. Never trust client-supplied From.
   if (provider.kind === "native" && !isNativeSenderAllowed(env, provider.address)) {
-    return Response.json({
-      error: "This mailbox is not enabled for outbound sending. Add its address to CLOUDFLARE_NATIVE_SENDERS in Cloudflare Workers Builds and redeploy main.",
-    }, { status: 403 });
+    return Response.json({ error: "Mailbox domain is not configured for outbound sending" }, { status: 403 });
+  }
+  if (provider.kind === "native" && !nativeSendTransportReady(env, provider.accountId === "native:primary")) {
+    return Response.json({ error: "Email Sending API credentials are not configured for this service" }, { status: 503 });
   }
   const to = splitRecipients(form.get("to"));
   const cc = splitRecipients(form.get("cc"));
