@@ -18,7 +18,7 @@ for migration in sorted((ROOT / "migrations").glob("*.sql")):
                (id,message_id,thread_id,direction,from_address,to_addresses,subject,received_at,is_read,body_text)
                VALUES (?,?,?,?,?,?,?,?,?,?)""",
             ("message-original", "<existing@sender.test>", "thread-original", "inbound",
-             "sender@test.com", '["contact@liamthemo.com"]', "existing", "2026-10-01", 1, "legacy email body"),
+             "sender@test.com", '["contact@clayshotpro.com"]', "existing", "2026-10-01", 1, "legacy email body"),
         )
         db.execute(
             "INSERT INTO drafts (id,subject,body_text) VALUES (?,?,?)",
@@ -29,6 +29,9 @@ for migration in sorted((ROOT / "migrations").glob("*.sql")):
 assert db.execute(
     "SELECT mailbox_id,original_message_id,is_read FROM messages WHERE id='message-original'"
 ).fetchone() == ("native:primary", "<existing@sender.test>", 1)
+assert db.execute(
+    "SELECT email_address FROM native_mailboxes WHERE id='native:primary'"
+).fetchone() == ("contact@clayshotpro.com",)
 assert db.execute(
     "SELECT mailbox_id FROM drafts WHERE id='draft-original'"
 ).fetchone() == ("native:primary",)
@@ -42,7 +45,7 @@ assert db.execute(
 box = "native:example"
 db.execute(
     "INSERT INTO native_mailboxes (id,email_address) VALUES (?,?)",
-    (box, "example@liamthemo.com"),
+    (box, "example@clayshotpro.com"),
 )
 db.execute(
     "INSERT INTO threads (id,subject,latest_message_at,mailbox_id) VALUES (?,?,?,?)",
@@ -54,7 +57,7 @@ db.execute(
         mailbox_id,original_message_id,is_read)
        VALUES (?,?,?,?,?,?,?,?,?,?)""",
     ("message-example", "thread-example", "inbound", "sender@test.com",
-     '["example@liamthemo.com"]', "existing", "2026-10-02",
+     '["example@clayshotpro.com"]', "existing", "2026-10-02",
      box, "<existing@sender.test>", 0),
 )
 assert db.execute(
@@ -67,7 +70,7 @@ assert db.execute(
 try:
     db.execute(
         "INSERT INTO native_mailboxes (id,email_address) VALUES (?,?)",
-        ("native:dup", "EXAMPLE@liamthemo.com"),
+        ("native:dup", "EXAMPLE@clayshotpro.com"),
     )
 except sqlite3.IntegrityError:
     pass
