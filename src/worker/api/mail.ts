@@ -1,5 +1,6 @@
 import PostalMime from "postal-mime";
 import { sanitizeEmailHtml } from "../email/html";
+import { listUnsubscribeUrl } from "../email/unsubscribe";
 import { resolveProvider } from "../providers/registry";
 import { gmailAttachment, gmailFullMessage, gmailThread } from "../providers/gmailProvider";
 import type { MailFolder, ProviderMutation } from "../providers/types";
@@ -75,6 +76,23 @@ async function recoverStoredHtml(env: Env, row: MessageRow): Promise<MessageRow>
     return { ...row, body_html: bodyHtml };
   } catch {
     return row;
+  }
+}
+
+/** Read only a bounded MIME header prefix from R2, including old stored messages. */
+async function nativeUnsubscribeUrl(env: Env, key: string | null): Promise<string | null> {
+  if (!key) return null;
+  try {
+    const object = await env.MAIL.get(key, { range: { offset: 0, length: 64 * 1024 } });
+    if (!object) return null;
+    const prefix = new TextDecoder().decode(await object.arrayBuffer());
+    const boundary = prefix.search(/\r?\n\r?\n/);
+    if (boundary < 0) return null;
+    const headers = prefix.slice(0, boundary);
+    const match = headers.match(/^list-unsubscribe:[ \t]*([^\r\n]*(?:\r?\n[ \t]+[^\r\n]*)*)/im);
+    return listUnsubscribeUrl(match?.[1]?.replace(/\r?\n[ \t]+/g, " ") ?? null);
+  } catch {
+    return null;
   }
 }
 
@@ -171,7 +189,7 @@ export async function listMessages(request: Request, env: Env): Promise<Response
   return Response.json({ folder, ...counts, accountId: provider.accountId, messages });
 }
 
-function detailFrom(row: MessageRow, attachments: AttachmentRow[]) {
+function detailFrom(row: MessageRow, attachments: AttachmentRow[], unsubscribeUrl: string | null = null) {
   return {
     ...toListItem(row),
     ccAddresses: parseArray(row.cc_addresses),
@@ -182,6 +200,7 @@ function detailFrom(row: MessageRow, attachments: AttachmentRow[]) {
     inReplyTo: row.in_reply_to,
     references: row.reference_ids,
     deliveryError: row.delivery_error,
+    unsubscribeUrl,
     attachments: attachments.map((attachment) => ({
       id: attachment.id,
       filename: attachment.filename,
@@ -251,7 +270,8 @@ export async function getMessage(request: Request, id: string, env: Env): Promis
       attachmentMap.set(attachment.message_id, [...(attachmentMap.get(attachment.message_id) ?? []), attachment]);
     }
   }
-  const thread = threadRows.results.map((entry) => detailFrom(entry, attachmentMap.get(entry.id) ?? []));
+  const unsubscribeUrl = row.direction === "inbound" ? await nativeUnsubscribeUrl(env, row.raw_r2_key) : null;
+  const thread = threadRows.results.map((entry) => detailFrom(entry, attachmentMap.get(entry.id) ?? [], entry.id === id ? unsubscribeUrl : null));
   const message = thread.find((entry) => entry.id === id);
   return message
     ? Response.json({ message, thread, newlyReadCount, accountId: provider.accountId })
