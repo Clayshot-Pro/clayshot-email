@@ -88,24 +88,10 @@ if (hydrated === config) {
   throw new Error("Production D1 binding could not be hydrated.");
 }
 
-// Email Service requires an explicit allowed_sender_addresses binding for
-// arbitrary recipients, even on Workers Paid. Build-time sender addresses are
-// intentionally provided outside Git and injected only into the deployed Worker.
-const additional = (process.env.CLOUDFLARE_NATIVE_SENDERS ?? "")
-  .split(/[;,\s]+/).map((value) => value.trim().toLowerCase()).filter(Boolean);
-if (additional.length > 100 || additional.some((email) =>
-  !/^[^@\s,;]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}$/.test(email) || email.length > 320)) {
-  throw new Error("CLOUDFLARE_NATIVE_SENDERS must contain at most 100 valid email addresses.");
-}
+// The Cloudflare account ID is already supplied privately to the production
+// build. Copy only this non-secret identifier into the deployed Worker config;
+// the Email Sending API token remains a separate runtime secret.
 const parsed = JSON.parse(hydrated);
-const multi = parsed.send_email?.find((binding) => binding.name === "EMAIL_MULTI");
-if (!multi || !parsed.vars?.PRIMARY_ADDRESS) {
-  throw new Error("Expected multi-sender binding and primary address in Wrangler configuration.");
-}
-const primary = parsed.vars.PRIMARY_ADDRESS.toLowerCase();
-const senders = [...new Set(additional.filter((email) => email !== primary))];
-multi.allowed_sender_addresses = [primary, ...senders];
-parsed.vars.CUSTOM_SENDER_ALLOWLIST = senders.join(",");
-
+parsed.vars.CF_EMAIL_SENDING_ACCOUNT_ID = accountId;
 await writeFile(CONFIG_PATH, JSON.stringify(parsed, null, 2) + "\n", "utf8");
-console.log("Resolved production D1 binding and configured explicit outbound sender allowlist (" + senders.length + " additional addresses).");
+console.log("Resolved production D1 binding and configured Email Sending account ID without publishing credentials.");
