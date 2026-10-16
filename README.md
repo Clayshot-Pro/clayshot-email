@@ -139,17 +139,19 @@ Docs: [Cloudflare Email Routing](https://developers.cloudflare.com/email-service
 
 ## 6. Configure outbound Email Sending separately
 
-Cloudflare's Email Sending is a distinct product, **not** automatically enabled by Email Routing. Check [Cloudflare's current Email Service policy and FAQ](https://developers.cloudflare.com/email-service/reference/faq/) before treating it as a general-purpose personal email provider: its documented supported use is **transactional sending**. The UI can compose ordinary emails, but this does **not** establish permission for unrestricted person-to-person mail. Obtain Cloudflare's approval for your intended use, or arrange a compliant alternative before relying on native outbound delivery.
+Cloudflare Email Sending is separate from Email Routing. Workers Paid **does not automatically activate an outbound domain**. Cloudflare presently documents the product primarily for transactional email, so verify your intended usage is approved before relying on native personal correspondence.
 
-1. In **Email Service > Email Sending**, onboard the native email domain in your Cloudflare account.
-2. Verify SPF, DKIM and DMARC/bounce setup and the product's destination verification and quotas. Keep the domain's DNS authoritative in Cloudflare.
-3. Confirm the `EMAIL` Wrangler binding restricts `allowed_sender_addresses` to your primary address, which must belong to an onboarded sending domain.
-4. The `EMAIL_MULTI` binding requires **an explicit sender address allowlist** to send to arbitrary recipients. In Cloudflare **Workers Builds > Build Variables/Secrets**, set `CLOUDFLARE_NATIVE_SENDERS` to a comma-separated list of the exact additional mailbox addresses authorized for outbound mail (for example `support@example.com,info@example.com`). Do not set this to a domain name, wildcard, or mailbox password. The production build injects those exact addresses into the `EMAIL_MULTI` binding and the server authorization list. Without this variable, only the primary address is permitted. This replaces the old `MULTI_SENDER_APPROVED` flag, which no longer enables sending by itself.
-5. Test only with permitted destinations, and inspect delivery, DKIM/SPF/DMARC, replies, bounces and Cloudflare's sending limits. A Workers Paid purchase does not onboard any sender domain automatically. Do not add unapproved sending domains or addresses. The build-time allowlist must be updated and `main` redeployed whenever you authorize a new native sender.
+**One-time configuration for automatic sending from every active native mailbox:**
 
-Gmail sends from connected Gmail accounts through the Gmail API, **not** the Cloudflare native sender binding.
+1. Go to **Compute > Email Service > Email Sending**, and onboard the domain used by `PRIMARY_ADDRESS`. Confirm sender-domain verification and SPF/DKIM/DMARC/bounce records. Domains must reside in the Cloudflare account that owns this Worker.
+2. Create a **restricted Cloudflare API token** with **Email Sending: Edit** permission scoped to that account. In the Worker's **Settings > Variables and Secrets**, set a runtime **secret** `CF_EMAIL_SENDING_TOKEN` to that token. Do not add it to GitHub, Workers Builds variables, client code, or `wrangler.jsonc`.
+3. The production build already uses `CLOUDFLARE_ACCOUNT_ID` to resolve the production database; it also injects that same nonsecret account ID into the Worker runtime variable `CF_EMAIL_SENDING_ACCOUNT_ID`. For independently deployed Workers without that build, provide `CF_EMAIL_SENDING_ACCOUNT_ID` as a runtime variable.
+4. Deploy from `main` and verify one live test from a newly created native mailbox. New active mailboxes under the configured domain will now be automatically eligible for sending **without adding individual sender addresses or redeploying**. Disabling/deleting a mailbox or revoking its login immediately blocks its provider lookup.
+5. Test delivery, replies, recipient bounces, SPF/DKIM, and sending quotas. If Cloudflare does not permit your intended use, use an approved email transport rather than bypassing its policy.
 
-Docs: [Onboard sender domains](https://developers.cloudflare.com/email-service/get-started/send-emails/) · [Send bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/).
+The primary native mailbox retains its original restricted `EMAIL` binding as a compatibility fallback when the REST API is not configured. Secondary native mailboxes require the **one-time** API credentials. Gmail accounts continue using the Gmail API. Legacy `CLOUDFLARE_NATIVE_SENDERS` and `MULTI_SENDER_APPROVED` variables are no longer used. Native Email Sending REST API messages have a 5 MiB total payload limit and can report queued delivery instead of final receipt.
+
+Docs: [Email Sending REST API](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/) · [Domain onboarding](https://developers.cloudflare.com/email-service/get-started/send-emails/) · [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/).
 
 ### Unsubscribing from received mail
 
@@ -280,7 +282,7 @@ The `/api/health` endpoint reports D1/R2 status but is under the authenticated A
 | Passkey fails after changing hostnames | RP IDs differ. Return to the original host or use a planned owner-controlled recovery/migration path; passkeys do not silently migrate. |
 | Google reports `redirect_uri_mismatch` | Add the **exact** generated callback URI in the Google Cloud OAuth client. |
 | Gmail connection fails or requires reconnecting | Verify OAuth scope/consent testing status, Google secrets, encrypted key availability and browser cookie state. |
-| Native outbound is blocked | Verify Workers Paid in the correct Cloudflare account, sender-domain onboarding and Email Service authentication, then set `CLOUDFLARE_NATIVE_SENDERS` in production **build** variables to the exact sending mailbox address(es). Redeploy `main` and check Email Sending delivery logs for the whitelisted transport error code. `MULTI_SENDER_APPROVED` alone has no effect. |
+| Native outbound is blocked | Verify the sender domain is onboarded under Email Sending, Workers Paid entitlement is active, and the Worker has `CF_EMAIL_SENDING_TOKEN` and the injected `CF_EMAIL_SENDING_ACCOUNT_ID`. Check the masked transport code and Cloudflare Email Service activity. |
 | Push notifications unavailable | Supply a valid VAPID keypair and check browser/device notification permissions. |
 | Cloudflare preview branch fails | Preview resources and deployment environment differ from production; disable preview builds or configure isolated bindings. Do not debug by pointing previews at production D1. |
 
