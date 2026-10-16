@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS native_mailboxes (
 );
 
 INSERT OR IGNORE INTO native_mailboxes (id, email_address, display_name)
-VALUES ('native:primary', 'contact@liamthemo.com', 'LTM Email');
+VALUES ('native:primary', 'contact@clayshotpro.com', 'Clayshot Pro Email');
 
 ALTER TABLE threads ADD COLUMN mailbox_id TEXT NOT NULL DEFAULT 'native:primary';
 ALTER TABLE messages ADD COLUMN mailbox_id TEXT NOT NULL DEFAULT 'native:primary';

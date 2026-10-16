@@ -31,7 +31,7 @@ export async function ensureNativeAccount(env: Env): Promise<void> {
   await env.DB.prepare(`
     INSERT INTO connected_accounts (
       id, provider, provider_account_id, email_address, display_name, status, updated_at
-    ) VALUES (?1, 'native', ?1, ?2, 'LTM Email', 'active', CURRENT_TIMESTAMP)
+    ) VALUES (?1, 'native', ?1, ?2, 'Clayshot Pro Email', 'active', CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
       email_address = excluded.email_address,
       status = 'active', updated_at = CURRENT_TIMESTAMP
@@ -83,7 +83,7 @@ export async function resolveProvider(env: Env, accountId?: string | null): Prom
   const id = accountId?.trim() || NATIVE_ACCOUNT_ID;
   if (id.startsWith("native:")) {
     const box = await mailboxById(env, id);
-    return box?.status === "active" ? nativeProvider(env, box.id, box.email_address, box.id === NATIVE_ACCOUNT_ID ? "Liam" : box.display_name || box.email_address) : null;
+    return box?.status === "active" ? nativeProvider(env, box.id, box.email_address, box.id === NATIVE_ACCOUNT_ID ? "Clayshot Pro" : box.display_name || box.email_address) : null;
   }
   const account = await env.DB.prepare(`
     SELECT provider, status, email_address

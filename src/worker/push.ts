@@ -27,7 +27,7 @@ export type NewMailPush = {
 };
 type VapidKeys = { publicKey: string; privateKey: string };
 
-const VAPID_SUBJECT = "mailto:contact@liamthemo.com";
+const VAPID_SUBJECT = "mailto:contact@clayshotpro.com";
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const MAX_ENDPOINT_LENGTH = 2048;
 const PUSH_HOSTS = ["web.push.apple.com", "fcm.googleapis.com", "updates.push.services.mozilla.com", "push.services.mozilla.com"];
@@ -71,7 +71,7 @@ function notificationCopy(notification: NewMailPush) {
   const sender = fromName && fromName.toLowerCase() !== fromAddress.toLowerCase()
     ? `${fromName} <${fromAddress}>`
     : fromAddress;
-  const mailbox = notificationText(notification.toAddress, 160) || "contact@liamthemo.com";
+  const mailbox = notificationText(notification.toAddress, 160) || "contact@clayshotpro.com";
   const preview = notificationText(notification.preview, 180);
   const routingLine = `${sender} → ${mailbox}`;
   return {
