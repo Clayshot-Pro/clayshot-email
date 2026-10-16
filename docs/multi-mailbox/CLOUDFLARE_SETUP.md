@@ -39,18 +39,14 @@
 
 ## 4. Enable automatic sending from all active native mailboxes
 
-Cloudflare Workers Paid is not the same as Email Service sender-domain onboarding. Cloudflare currently documents Email Sending for transactional messages; verify its policy fits your use case.
+1. In **Compute > Email Service > Email Sending**, onboard the configured native sender domain and verify the required DNS/DKIM/SPF/bounce setup.
+2. The `EMAIL_DYNAMIC` Worker binding is unrestricted by sender address at the Cloudflare binding layer so every **active, signed-in native mailbox** on `PRIMARY_ADDRESS`'s domain can send without a per-mailbox allowlist or per-mailbox API token. `EMAIL` remains restricted to the primary address.
+3. Deploy from `main`. Active mailboxes now have a usable Send button; missing optional REST API credentials no longer grey it out. Sender identity still comes exclusively from D1-authenticated mailbox records, not from form input.
+4. For API-based sending, optionally create an account-scoped **Email Sending: Edit** token and set it as the Worker's runtime secret `CF_EMAIL_SENDING_TOKEN`. If provided along with the build-injected account ID, the Worker prefers the REST transport. Do not expose it to clients or commits.
+5. Test a real secondary native mailbox send. If the domain is not onboarded, Cloudflare may restrict destinations to verified recipients. Review the inline compose error and Email Service activity. Cloudflare may also restrict non-transactional use.
+6. The Worker remains subject to per-mailbox authorization, active status, quota, rate limits, idempotency and account-wide Cloudflare email restrictions.
 
-1. Onboard the sending domain in **Compute > Email Service > Email Sending** and verify SPF/DKIM, DMARC and bounce routing in the **same account** as this Worker.
-2. Create a **Cloudflare account-scoped token** with **Email Sending: Edit**. Add it as the Worker's runtime secret `CF_EMAIL_SENDING_TOKEN` (not a build secret and never in the repository).
-3. The `main` production build takes the already configured `CLOUDFLARE_ACCOUNT_ID` and injects it into the Worker runtime as `CF_EMAIL_SENDING_ACCOUNT_ID` (account ID only, no credential). Standalone deployments must configure this runtime variable.
-4. Redeploy `main` once. The Worker now uses Cloudflare's authenticated Email Sending REST API for native mailboxes and validates the **active mailbox account from D1** before each send. Newly created active mailboxes on the configured domain are enabled automatically; no per-mailbox build change, wildcard or dynamic Worker binding update is required.
-5. Test outgoing mail from primary and new native mailboxes, replies, attachments, bounces, rate limits, and failure recovery. REST API sends do not provide a Workers-binding message ID; the application records local sent attempts and does not auto-retry ambiguous sends.
-6. If the actual correspondence is not permitted by Cloudflare's policy, retain the authenticated mailbox and use a compliant outbound provider.
-
-The original `EMAIL` Worker binding is retained only as the primary mailbox's fallback during migration. The obsolete `EMAIL_MULTI` binding and `CLOUDFLARE_NATIVE_SENDERS` per-address allowlist are removed.
-
-[Cloudflare Email Sending REST API](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/) · [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/)
+[Cloudflare send bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/)
 
 ## 5. Optional automated retention
 
@@ -75,7 +71,7 @@ The original `EMAIL` Worker binding is retained only as the primary mailbox's fa
 
 **Required before production promotion:** verified D1+R2 backup/restore; confirm Cloudflare main-only branch controls; inspect Cloudflare Email Routing; obtain Cloudflare Email Sending policy decision.
 
-**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, set the runtime `CF_EMAIL_SENDING_TOKEN` secret once, deploy `main`, and test any active native mailbox.
+**Required after safe production promotion:** enable catch-all to Worker; external receive and rejection tests; if outbound approved, deploy `main` with `EMAIL_DYNAMIC` and test any active native mailbox. The REST API token is optional.
 
 **Optional:** `MAILBOX_PURGE_ENABLED=true` after backups.
 

@@ -1,5 +1,6 @@
 import type { MailProvider, ProviderListOptions, ProviderMessage, ProviderMutation, ProviderSendInput, ProviderSendResult } from "./types";
 import { sendViaEmailServiceApi } from "./emailServiceApi";
+import { nativeSendBinding } from "./senderPolicy";
 
 type NativeMessageRow = {
   id: string;
@@ -133,11 +134,14 @@ export class NativeMailProvider implements MailProvider {
     if (this.env.CF_EMAIL_SENDING_ACCOUNT_ID && this.env.CF_EMAIL_SENDING_TOKEN) {
       return sendViaEmailServiceApi(this.env, this.address, this.senderName, input);
     }
-    // Preserve the original primary sender until Email Service credentials are configured.
-    if (this.accountId !== "native:primary") {
-      throw Object.assign(new Error("Email API not configured"), { code: "E_EMAIL_API_NOT_CONFIGURED" });
+    // The dedicated binding can send from any on-boarded native mail domain.
+    // The app supplies From from the authenticated active D1 mailbox, never
+    // from client data. Preserve the primary sender's restricted fallback.
+    const transport = nativeSendBinding(this.env, this.accountId);
+    if (!transport) {
+      throw Object.assign(new Error("Native sender binding unavailable"), { code: "E_NATIVE_TRANSPORT_NOT_CONFIGURED" });
     }
-    const result = await this.env.EMAIL.send({
+    const result = await transport.send({
       from: { email: this.address, name: this.senderName },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,

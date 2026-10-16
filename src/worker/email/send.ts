@@ -1,6 +1,6 @@
 import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
-import { isNativeSenderAllowed, nativeSendTransportReady } from "../providers/senderPolicy";
+import { isNativeSenderAllowed } from "../providers/senderPolicy";
 
 type ReplyTarget = {
   id: string;
@@ -35,6 +35,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SAFE_DELIVERY_CODES = new Set([
   "E_RECIPIENT_NOT_ALLOWED",
   "E_EMAIL_API_NOT_CONFIGURED",
+  "E_NATIVE_TRANSPORT_NOT_CONFIGURED",
   "E_EMAIL_API_AUTH_FAILED",
   "E_EMAIL_API_FORBIDDEN",
   "E_EMAIL_SERVICE_NOT_ENTITLED",
@@ -96,6 +97,7 @@ function safeDeliveryError(error: unknown): string {
 
 function userDeliveryError(code: string): string {
   if (code === "E_EMAIL_API_NOT_CONFIGURED") return "Email Sending API credentials are not configured";
+  if (code === "E_NATIVE_TRANSPORT_NOT_CONFIGURED") return "Cloudflare's dynamic sender binding is not configured for this Worker";
   if (code === "E_EMAIL_API_AUTH_FAILED" || code === "E_EMAIL_API_FORBIDDEN") {
     return "Cloudflare Email Sending API credentials are invalid or lack Email Sending permission";
   }
@@ -200,9 +202,6 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   // D1 resolves the authenticated, active mailbox. Never trust client-supplied From.
   if (provider.kind === "native" && !isNativeSenderAllowed(env, provider.address)) {
     return Response.json({ error: "Mailbox domain is not configured for outbound sending" }, { status: 403 });
-  }
-  if (provider.kind === "native" && !nativeSendTransportReady(env, provider.accountId === "native:primary")) {
-    return Response.json({ error: "Email Sending API credentials are not configured for this service" }, { status: 503 });
   }
   const to = splitRecipients(form.get("to"));
   const cc = splitRecipients(form.get("cc"));

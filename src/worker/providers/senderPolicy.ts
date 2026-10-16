@@ -9,12 +9,11 @@ export function isNativeSenderAllowed(env: { PRIMARY_ADDRESS: string }, email: s
   return suffix.length > 1 && address.endsWith(suffix) && address.indexOf("@") === address.lastIndexOf("@");
 }
 
-/** One set of credentials enables every active mailbox, including future ones.
- * Keep the existing primary binding operational for older deployments.
- */
-export function nativeSendTransportReady(
-  env: { CF_EMAIL_SENDING_ACCOUNT_ID?: string; CF_EMAIL_SENDING_TOKEN?: string },
-  isPrimary: boolean,
-): boolean {
-  return isPrimary || Boolean(env.CF_EMAIL_SENDING_ACCOUNT_ID?.trim() && env.CF_EMAIL_SENDING_TOKEN?.trim());
+
+/** Select the Cloudflare binding for an authenticated native mailbox. */
+export function nativeSendBinding(
+  env: { EMAIL: EmailServiceBinding; EMAIL_DYNAMIC?: EmailServiceBinding },
+  accountId: string,
+): EmailServiceBinding | null {
+  return accountId === "native:primary" ? env.EMAIL : env.EMAIL_DYNAMIC ?? null;
 }
