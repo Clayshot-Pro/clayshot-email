@@ -1,7 +1,7 @@
 import { gmailProvider } from "./gmailProvider";
 import { nativeProvider } from "./native";
+import { isNativeSenderAllowed } from "./senderPolicy";
 import { allNativeMailboxes, mailboxById, PRIMARY_MAILBOX_ID } from "../mailboxes";
-import { normalizeMailboxAddress } from "../mailboxRules";
 import type { MailProvider, MailProviderKind } from "./types";
 
 export type ConnectedAccount = {
@@ -67,7 +67,7 @@ export async function listConnectedAccounts(env: Env): Promise<ConnectedAccount[
       avatarUrl: box.id === NATIVE_ACCOUNT_ID ? primaryAvatarUrl : null,
       status: box.status,
       lastSyncedAt: null,
-      sendEnabled: normalizeMailboxAddress(box.email_address, true) === box.email_address.trim().toLowerCase(),
+      sendEnabled: isNativeSenderAllowed(env, box.email_address),
     })),
     ...result.results.map((row) => ({
       id: row.id,

@@ -17,7 +17,7 @@ This is an **authenticated web application**, not a traditional mail server. It 
 | D1 (`DB`) | Mailboxes, message metadata, drafts, sessions, OAuth state, audit logs |
 | R2 (`MAIL`) | Raw MIME, attachments and profile photos |
 | Cloudflare Email Routing | Deliver incoming mail to the Worker's `email()` handler |
-| Cloudflare Email Sending (`EMAIL_MULTI`) | Native outbound from active Clayshot-domain mailboxes where permitted |
+| Cloudflare Email Sending (`EMAIL`, `EMAIL_DYNAMIC`) | Native outbound from active Clayshot-domain mailboxes where permitted |
 | WebAuthn / passkeys | Owner authentication and fresh approval for sensitive admin operations |
 | Gmail API | Optional account connection, reading, sending and contacts |
 | Web Push / VAPID | Optional browser/PWA notifications |
@@ -78,7 +78,7 @@ Outside Cloudflare Workers Builds, `npm run build` compiles the app but **delibe
 The repository is configured for its original mail domain, `liamthemo.com`. For **a new, empty database** using `example.com`, change all of the following to your own values:
 
 1. `wrangler.jsonc`: change `vars.PRIMARY_ADDRESS` to `contact@example.com`, set `vars.FORWARD_TO` to an optional verified forwarding address or leave it empty, and replace `send_email[0].allowed_sender_addresses` with your approved primary sender. Set/verify the D1 database and R2 bucket **names** for your account.
-2. `src/worker/mailboxRules.ts`: change the `DOMAIN` constant to `example.com`; otherwise creation and acceptance of native addresses will still be restricted to the original domain.
+2. Native mailbox creation, login, plus-addressing, and postmaster/abuse routing now derive their domain from `vars.PRIMARY_ADDRESS`; do not edit `mailboxRules.ts` manually. Initial D1 seed still needs to match the configured domain (next step).
 3. `migrations/0010_native_mailboxes.sql`: **before the first application only**, replace the seeded `native:primary` email address `contact@liamthemo.com` with `contact@example.com`. The primary mailbox ID must remain `native:primary`.
 4. Review branding and original-domain text, including `src/worker/push.ts` (VAPID contact address and notification fallback), `src/worker/providers/registry.ts` (default display name) and PWA assets, if rebranding.
 5. Do **not** change `wrangler.jsonc`'s zero-valued `database_id` in the committed repository. Production resolves it privately during Cloudflare Builds.
@@ -141,17 +141,26 @@ Docs: [Cloudflare Email Routing](https://developers.cloudflare.com/email-service
 
 ## 6. Configure outbound Email Sending separately
 
-Cloudflare's Email Sending is a distinct product, **not** automatically enabled by Email Routing. Check [Cloudflare's current Email Service policy and FAQ](https://developers.cloudflare.com/email-service/reference/faq/) before treating it as a general-purpose personal email provider: its documented supported use is **transactional sending**. The UI can compose ordinary emails, but this does **not** establish permission for unrestricted person-to-person mail. Obtain Cloudflare's approval for your intended use, or arrange a compliant alternative before relying on native outbound delivery.
+Cloudflare Email Sending is separate from Email Routing. Workers Paid **does not automatically activate an outbound domain**. Cloudflare presently documents the product primarily for transactional email, so verify your intended usage is approved before relying on native personal correspondence.
 
-1. In **Email Service > Email Sending**, onboard the native email domain in your Cloudflare account.
-2. Verify SPF, DKIM and DMARC/bounce setup and the product's destination verification and quotas. Keep the domain's DNS authoritative in Cloudflare.
-3. Confirm the `EMAIL` Wrangler binding restricts `allowed_sender_addresses` to your primary address, which must belong to an onboarded sending domain.
-4. `EMAIL_MULTI` is the single Cloudflare Email Sending binding with no static per-mailbox sender allowlist. The application authorizes sending from **active, authenticated native mailboxes at `clayshotpro.com`**, including newly created ones. An additional `MULTI_SENDER_APPROVED` toggle is no longer needed. The binding still requires Cloudflare sender-domain onboarding; without verification, Cloudflare may reject the delivery.
-5. Test only with permitted destinations, and inspect delivery, DKIM/SPF/DMARC, replies, bounces and Cloudflare's sending limits.
+**One-time configuration for automatic sending from all active native mailboxes:**
 
-Gmail sends from connected Gmail accounts through the Gmail API, **not** the Cloudflare native sender binding.
+1. Open **Compute > Email Service > Email Sending** and onboard the domain used by `PRIMARY_ADDRESS`. Confirm SPF/DKIM/DMARC and bounce configuration in the **same Cloudflare account** as the Worker. Workers Paid alone does not activate Email Sending.
+2. The Worker has two outbound bindings: restricted `EMAIL` for the primary mailbox and `EMAIL_DYNAMIC` for all other active native mailboxes. `EMAIL_DYNAMIC` does **not** require per-address allowlists or a runtime API token. Only addresses already authenticated as active native mailboxes under the configured domain can reach it through this app.
+3. After deploying `main`, all active native mailboxes—including newly created ones—can attempt sending automatically. Send is not greyed out for active mailboxes simply because an optional API credential is absent.
+4. Cloudflare enforces sending-domain onboarding and its account restrictions. Without an onboarded sending domain, unbound email bindings may only deliver to verified destinations. If Cloudflare rejects delivery, the compose window displays the transport error without hiding the Send control. Check Email Service activity for the actual result.
+5. Optionally configure an **account-scoped Email Sending: Edit** API token as the Worker's runtime secret `CF_EMAIL_SENDING_TOKEN`. In that case, the app prefers the REST API and automatically injects `CF_EMAIL_SENDING_ACCOUNT_ID` from the existing private production build account ID. This is optional, **not** required for normal active native mailbox sending.
+6. Verify a real send, replies, bounce behavior, domain authentication and account quotas. If Cloudflare does not allow your intended type of correspondence, use an approved transport instead.
 
-Docs: [Onboard sender domains](https://developers.cloudflare.com/email-service/get-started/send-emails/) · [Send bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/).
+Gmail accounts continue through Gmail OAuth and the Gmail API. Legacy `CLOUDFLARE_NATIVE_SENDERS` and `MULTI_SENDER_APPROVED` are unused. All outbound native attempts continue to apply server-side mailbox authorization, daily/rate limits, idempotency and quota controls.
+
+Docs: [Cloudflare send bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Email Sending REST API](https://developers.cloudflare.com/email-service/api/send-emails/rest-api/) · [Domain onboarding](https://developers.cloudflare.com/email-service/get-started/send-emails/) · [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/).
+
+### Unsubscribing from received mail
+
+The **Unsubscribe** control is always available whenever a message is open, regardless of Inbox, Junk, Archive, Starred, Sent or **Trash** folder (desktop and mobile). It first checks standard `List-Unsubscribe` headers, then looks for likely unsubscribe instructions in the message body when headers are missing. Native messages can still use headers retained in R2, including older Trash messages; Gmail uses its message headers. Clicking the control opens an explanation dialog. External links are user-initiated only, never fetched automatically, and require a supported HTTPS or mailto destination.
+
+**Unsubscribe cannot be guaranteed for every sender.** If a received message provides no unsubscribe mechanism, the dialog explains the limitation; it does not falsely report a successful unsubscription. Sent messages display the same control but explain why unsubscribing from a message you sent is not meaningful. Trash status does not suppress the action or its link. A sender-provided URL is not trusted automatically: review it before providing credentials or confirming anything. For mail without a usable subscription-management method, use Junk and other available mail controls.
 
 ## 7. Configure secrets (not Git files)
 
@@ -164,7 +173,8 @@ Use **Cloudflare Worker runtime secrets** under the Worker's **Settings > Variab
 | `GOOGLE_CLIENT_ID` | Gmail only | OAuth client identifier |
 | `GOOGLE_CLIENT_SECRET` | Gmail only | OAuth client secret |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Push only | Matching Web Push/VAPID keypair |
-
+| `CLOUDFLARE_NATIVE_SENDERS` | Cloudflare **build** variable (optional) | Exact comma-separated additional native sender addresses; only configure when sending domain and account policy permit. Never a browser/API value. |
+| `MULTI_SENDER_APPROVED` | Deprecated | Old runtime flag does not grant sender access; use the explicit build-time address allowlist instead. |
 | `MAILBOX_PURGE_ENABLED` | No; leave disabled | Enables daily irreversible deletion after the 30-day mailbox recovery period |
 
 Generate a **unique** strong initial setup secret and, for Gmail, a separate 32-byte encryption key. For example, run these **locally** in your terminal and store the outputs privately:
@@ -277,7 +287,7 @@ The `/api/health` endpoint reports D1/R2 status but is under the authenticated A
 | Passkey fails after changing hostnames | RP IDs differ. Return to the original host or use a planned owner-controlled recovery/migration path; passkeys do not silently migrate. |
 | Google reports `redirect_uri_mismatch` | Add the **exact** generated callback URI in the Google Cloud OAuth client. |
 | Gmail connection fails or requires reconnecting | Verify OAuth scope/consent testing status, Google secrets, encrypted key availability and browser cookie state. |
-| Native outbound is blocked | Check the selected mailbox is active and on the `clayshotpro.com` domain. Sending can now be attempted without a separate toggle; errors appear directly in Compose. Verify the Clayshot domain is onboarded for Email Sending and inspect Cloudflare activity/recipient restrictions. |
+| Native outbound is blocked | Active native mailboxes on the configured domain (`clayshotpro.com` when `PRIMARY_ADDRESS` is empty) can always open Compose and attempt sending. Check that `EMAIL_DYNAMIC` is deployed, the sender domain is onboarded in Email Service, and Cloudflare has permitted the destination. Inspect the inline compose error and Email Service activity; the REST API token is optional. |
 | Push notifications unavailable | Supply a valid VAPID keypair and check browser/device notification permissions. |
 | Cloudflare preview branch fails | Preview resources and deployment environment differ from production; disable preview builds or configure isolated bindings. Do not debug by pointing previews at production D1. |
 

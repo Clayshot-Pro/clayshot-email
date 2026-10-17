@@ -1,6 +1,6 @@
 import { checkAuthRateLimit } from "../security";
 import { resolveProvider } from "../providers/registry";
-import { normalizeMailboxAddress } from "../mailboxRules";
+import { isNativeSenderAllowed } from "../providers/senderPolicy";
 
 type ReplyTarget = {
   id: string;
@@ -34,6 +34,14 @@ const MAX_RECIPIENTS = 50;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SAFE_DELIVERY_CODES = new Set([
   "E_RECIPIENT_NOT_ALLOWED",
+  "E_EMAIL_API_NOT_CONFIGURED",
+  "E_NATIVE_TRANSPORT_NOT_CONFIGURED",
+  "E_EMAIL_API_AUTH_FAILED",
+  "E_EMAIL_API_FORBIDDEN",
+  "E_EMAIL_SERVICE_NOT_ENTITLED",
+  "E_EMAIL_SENDING_DISABLED",
+  "E_EMAIL_DELIVERY_UNKNOWN",
+  "E_SENDER_NOT_VERIFIED",
   "E_RECIPIENT_SUPPRESSED",
   "E_SENDER_DOMAIN_NOT_AVAILABLE",
   "E_CONTENT_TOO_LARGE",
@@ -88,8 +96,23 @@ function safeDeliveryError(error: unknown): string {
 }
 
 function userDeliveryError(code: string): string {
+  if (code === "E_EMAIL_API_NOT_CONFIGURED") return "Email Sending API credentials are not configured";
+  if (code === "E_NATIVE_TRANSPORT_NOT_CONFIGURED") return "Cloudflare's dynamic sender binding is not configured for this Worker";
+  if (code === "E_EMAIL_API_AUTH_FAILED" || code === "E_EMAIL_API_FORBIDDEN") {
+    return "Cloudflare Email Sending API credentials are invalid or lack Email Sending permission";
+  }
+  if (code === "E_EMAIL_SERVICE_NOT_ENTITLED" || code === "E_EMAIL_SENDING_DISABLED") {
+    return "Cloudflare Email Sending is not enabled for this account or domain";
+  }
+  if (code === "E_EMAIL_DELIVERY_UNKNOWN") return "Email delivery status is unknown. Check sent activity before retrying";
   if (code === "E_RECIPIENT_SUPPRESSED") {
     return "Recipient cannot currently receive this email";
+  }
+  if (code === "E_SENDER_NOT_VERIFIED" || code === "E_SENDER_DOMAIN_NOT_AVAILABLE") {
+    return "This sender domain is not enabled or verified for Cloudflare Email Sending";
+  }
+  if (code === "E_RECIPIENT_NOT_ALLOWED") {
+    return "Cloudflare sending is restricted to verified recipients. Configure an allowed sender address for this mailbox";
   }
   if (code === "E_CONTENT_TOO_LARGE") return "Email content is too large";
   if (code === "E_RATE_LIMIT_EXCEEDED" || code === "E_DAILY_LIMIT_EXCEEDED") {
@@ -176,11 +199,9 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  // Sender identity is resolved from the authenticated active mailbox in D1.
-  // Never accept an arbitrary client-supplied From address or off-domain sender.
-  if (provider.kind === "native"
-      && normalizeMailboxAddress(provider.address, true) !== provider.address.trim().toLowerCase()) {
-    return Response.json({ error: "Mailbox sender domain is not configured for Cloudflare Email Sending" }, { status: 403 });
+  // D1 resolves the authenticated, active mailbox. Never trust client-supplied From.
+  if (provider.kind === "native" && !isNativeSenderAllowed(env, provider.address)) {
+    return Response.json({ error: "Mailbox domain is not configured for outbound sending" }, { status: 403 });
   }
   const to = splitRecipients(form.get("to"));
   const cc = splitRecipients(form.get("cc"));
@@ -361,6 +382,9 @@ export async function sendEmail(request: Request, env: Env): Promise<Response> {
   } catch (error) {
     status = "failed";
     deliveryError = safeDeliveryError(error);
+    // Log a whitelisted transport code only; never expose addresses,
+    // message contents, API credentials or provider stack traces.
+    console.warn("Outbound provider rejected message", { provider: provider.kind, code: deliveryError });
   }
 
   if (provider.kind === "native") {
