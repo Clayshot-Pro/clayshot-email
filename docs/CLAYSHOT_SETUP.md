@@ -139,7 +139,7 @@ it never grants administrator access: `admin@clayshotpro.com` still requires a
 password and passkey. It requests only `openid email`, so Google verification is
 not needed and no Google APIs need to be enabled.
 
-1. The OAuth client lives in `clayshot-pro-prod-490017` (see the
+1. The OAuth client lives in `clayshot-pro-dev` (see the
    `clayshot-pro-infrastructure` runbook). Set the consent-screen audience to
    **Internal**. Add the redirect URI
    `https://email.clayshot-dev.com/api/auth/google/callback`.
