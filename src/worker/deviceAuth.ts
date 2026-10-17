@@ -111,6 +111,9 @@ async function establishDeviceGrant(request: Request, env: Env, accountId: strin
     VALUES (?1,?2,?3)`).bind(session.id,accountId,provider).run();
   return issued ? deviceCookie(issued) : null;
 }
+export async function grantNativeDeviceSession(request: Request, env: Env, mailboxId: string): Promise<string | null> {
+  return establishDeviceGrant(request, env, mailboxId, "native");
+}
 export async function grantGoogleDeviceSession(request: Request, env: Env, accountId: string): Promise<string | null> {
   return establishDeviceGrant(request, env, accountId, "gmail");
 }

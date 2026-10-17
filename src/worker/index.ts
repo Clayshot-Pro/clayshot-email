@@ -36,6 +36,7 @@ import { appOrigin } from "./config";
 import { receiveEmail } from "./email/receive";
 import { sendEmail } from "./email/send";
 import { googleOAuthCallback, startGoogleOAuth } from "./providers/google";
+import { googleLoginCallback, startGoogleLogin } from "./googleLogin";
 import { pushConfig, subscribePush, unsubscribePush } from "./push";
 import { authRateLimitBucket, checkAuthRateLimit } from "./security";
 
@@ -49,6 +50,7 @@ const AUTH_POSTS = new Set([
   "/api/admin/step-up/options",
   "/api/admin/step-up/verify",
   "/api/accounts/gmail/connect",
+  "/api/auth/google/start",
 ]);
 const MAX_API_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -131,6 +133,8 @@ async function routeApi(request: Request, env: Env, url: URL, ctx: ExecutionCont
   if (url.pathname === "/api/auth/login/options" && request.method === "POST") return authenticationOptions(request, env);
   if (url.pathname === "/api/auth/login/verify" && request.method === "POST") return verifyAuthentication(request, env);
   if (url.pathname === "/api/auth/logout" && request.method === "POST") return logout(request, env);
+  if (url.pathname === "/api/auth/google/start" && request.method === "POST") return startGoogleLogin(request, env);
+  if (url.pathname === "/api/auth/google/callback" && request.method === "GET") return googleLoginCallback(request, env);
   if (url.pathname === "/api/accounts/gmail/callback" && request.method === "GET") return googleOAuthCallback(request, env);
   if (url.pathname === "/api/accounts/gmail/connect" && request.method === "POST") return startGoogleOAuth(request, env);
 

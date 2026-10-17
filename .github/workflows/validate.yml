@@ -59,6 +59,9 @@ jobs:
       - name: Active native sender and compose regression
         run: node scripts/test-compose-sender.mjs
 
+      - name: Google sign-in regression
+        run: node scripts/test-google-login.mjs
+
       - name: Unsubscribe action visible in every folder
         run: node scripts/test-unsubscribe-ui.mjs
 

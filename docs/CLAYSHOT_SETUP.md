@@ -130,6 +130,27 @@ Store `publicKey` as the Worker secret `VAPID_PUBLIC_KEY` and
 `privateKey` as `VAPID_PRIVATE_KEY`. Never commit the private key.
 Existing push subscriptions must keep using the same keypair.
 
+## Sign in with Google
+
+The login page's **Sign in with Google** button signs a user into the active
+native mailbox whose address matches their verified Google account. Only
+`@clayshotpro.com` Google (Cloud Identity / Workspace) accounts are accepted, and
+it never grants administrator access: `admin@clayshotpro.com` still requires a
+password and passkey. It requests only `openid email`, so Google verification is
+not needed and no Google APIs need to be enabled.
+
+1. The OAuth client lives in `clayshot-pro-prod-490017` (see the
+   `clayshot-pro-infrastructure` runbook). Set the consent-screen audience to
+   **Internal**. Add the redirect URI
+   `https://email.clayshot-dev.com/api/auth/google/callback`.
+2. Set the Worker secrets. Sign-in needs only these two:
+   ```bash
+   npx wrangler secret put GOOGLE_CLIENT_ID --name clayshot-pro-email-dev
+   npx wrangler secret put GOOGLE_CLIENT_SECRET --name clayshot-pro-email-dev
+   ```
+3. Create a native mailbox matching the Google account (for example
+   `liamkienitz@clayshotpro.com`) in the admin panel, then test the button.
+
 ## Final acceptance
 
 - [ ] CI typecheck, build, migration and security scans pass
@@ -140,6 +161,7 @@ Existing push subscriptions must keep using the same keypair.
 - [ ] Unknown recipients are rejected; plus aliases resolve correctly
 - [ ] `admin@clayshotpro.com` authenticates with password and passkey
 - [ ] Admin routes are inaccessible to mailbox-only sessions
+- [ ] Sign in with Google opens the matching mailbox and rejects other Google accounts
 - [ ] Setup secret removed; D1 and R2 backups and restore validated
 - [ ] Outbound mail verified only if authorized and needed
 

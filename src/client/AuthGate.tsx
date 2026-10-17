@@ -32,11 +32,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
       ]);
       setDevice(deviceStatus);
       setOwner(ownerStatus);
-      const oauthError = new URLSearchParams(window.location.search).get("gmail");
-      if (oauthError && oauthError !== "connected") setError(`Google sign-in was not completed: ${oauthError.replace(/_/g, " ")}`);
+      const params = new URLSearchParams(window.location.search);
+      const oauthError = params.get("google") ?? params.get("gmail");
+      if (oauthError && oauthError !== "connected" && oauthError !== "signed_in") setError(`Google sign-in was not completed: ${oauthError.replace(/_/g, " ")}`);
       else setError("");
       if (oauthError) {
         const next = new URL(window.location.href);
+        next.searchParams.delete("google");
         next.searchParams.delete("gmail");
         window.history.replaceState(null, "", next.toString());
       }

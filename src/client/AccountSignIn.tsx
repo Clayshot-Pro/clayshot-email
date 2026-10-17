@@ -16,7 +16,7 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
   async function addGoogle() {
     setPending("google"); setError("");
     try {
-      const response = await fetch("/api/accounts/gmail/connect", { method: "POST" });
+      const response = await fetch("/api/auth/google/start", { method: "POST" });
       const result = await response.json() as { authorizationUrl?: string; error?: string };
       if (!response.ok || !result.authorizationUrl) throw new Error(result.error || "Google sign-in unavailable");
       window.location.assign(result.authorizationUrl);
@@ -57,7 +57,7 @@ export function AccountSignIn({ onSignedIn, showGoogle = true }: { onSignedIn: (
         onClick={() => void addGoogle()}
       >
         <span className="signin-google-mark" aria-hidden="true">G</span>
-        <span>{pending === "google" ? "Connecting to Google…" : "Continue with Google"}</span>
+        <span>{pending === "google" ? "Connecting to Google…" : "Sign in with Google"}</span>
       </button>
     ) : null}
     {showGoogle ? <div className="account-signin-divider"><span>or use a custom mailbox</span></div> : null}
