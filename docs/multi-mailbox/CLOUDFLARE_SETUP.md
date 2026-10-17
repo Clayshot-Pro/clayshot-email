@@ -37,18 +37,16 @@
 
 [Cloudflare routing rules](https://developers.cloudflare.com/email-service/configuration/email-routing-addresses/) · [Catch-all API behavior](https://developers.cloudflare.com/api/resources/email_routing/)
 
-## 4. Authorize outbound sending from newly created addresses
+## 4. Enable automatic sending from all active native mailboxes
 
-Cloudflare's published Email Service FAQ says its outgoing service is **intended only for transactional email** (as of October 13, 2026). Ordinary arbitrary personal/business webmail correspondence is **not confirmed as supported**. Do not enable general mailbox sending simply because it works technically.
+1. In **Compute > Email Service > Email Sending**, onboard the configured native sender domain and verify the required DNS/DKIM/SPF/bounce setup.
+2. The `EMAIL_DYNAMIC` Worker binding is unrestricted by sender address at the Cloudflare binding layer so every **active, signed-in native mailbox** on the configured domain (`PRIMARY_ADDRESS`'s domain, or `clayshotpro.com` when it is empty) can send without a per-mailbox allowlist or per-mailbox API token. Clayshot has no fixed primary address, so its `EMAIL` binding (used by the first admin-created `native:primary` mailbox) has no static allowlist either.
+3. Deploy from `main`. Active mailboxes now have a usable Send button; missing optional REST API credentials no longer grey it out. Sender identity still comes exclusively from D1-authenticated mailbox records, not from form input.
+4. For API-based sending, optionally create an account-scoped **Email Sending: Edit** token and set it as the Worker's runtime secret `CF_EMAIL_SENDING_TOKEN`. If provided along with the build-injected account ID, the Worker prefers the REST transport. Do not expose it to clients or commits.
+5. Test a real secondary native mailbox send. If the domain is not onboarded, Cloudflare may restrict destinations to verified recipients. Review the inline compose error and Email Service activity. Cloudflare may also restrict non-transactional use.
+6. The Worker remains subject to per-mailbox authorization, active status, quota, rate limits, idempotency and account-wide Cloudflare email restrictions.
 
-1. Ask Cloudflare support/Cloudflare Developers Discord whether **manual two-way, person-to-person correspondence through the site's private owner-only webmail** is allowed using Email Sending.
-2. Verify `liamthemo.com` is onboarded under **Compute > Email Service > Email Sending** and confirm SPF/DKIM, bounce configuration and DMARC. This is domain-level; you do not need separate DNS records for every sender address.
-3. The Clayshot Wrangler config has a single `EMAIL_MULTI` binding without a static sender-address allowlist. Sending identity comes from active, authenticated `native_mailboxes` records and must belong to `clayshotpro.com`. Cloudflare Email Sending requires the Clayshot sender domain to be onboarded. **Never expose a Cloudflare API token to the browser or mailbox users.**
-4. All active Clayshot native mailboxes are now automatically eligible to **attempt sending**; the retired `MULTI_SENDER_APPROVED` flag no longer disables the Send button or rejects requests. Successful delivery remains contingent on Cloudflare sending-domain onboarding, destination eligibility, limits, and approved use case.
-5. Test sending from **each created address**, including From, Reply-To, replies, DKIM/SPF/DMARC, rate limit response, bounce handling, attachment size and the Sent folder. The application enforces owner session, active mailbox status, sending idempotency, per-mailbox rate and quota controls.
-6. Cloudflare supports transactional sending and does not confirm unrestricted person-to-person webmail as an eligible use case. If Cloudflare does not approve the intended correspondence, use an approved email provider or request explicit confirmation instead of attempting to evade Cloudflare policy.
-
-[Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/) · [Sending bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Sending limits](https://developers.cloudflare.com/email-service/platform/limits/)
+[Cloudflare send bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/) · [Cloudflare FAQ](https://developers.cloudflare.com/email-service/reference/faq/)
 
 ## 5. Optional automated retention
 
@@ -73,7 +71,7 @@ Cloudflare's published Email Service FAQ says its outgoing service is **intended
 
 **Required before production promotion:** verified D1+R2 backup/restore; confirm Cloudflare main-only branch controls; inspect Cloudflare Email Routing; obtain Cloudflare Email Sending policy decision.
 
-**Required after safe production promotion:** verify catch-all routing to the Clayshot Worker, external receive/rejection tests, Cloudflare sender-domain onboarding, and a live outbound test with a permitted destination. Successful build is not proof of delivery.
+**Required after safe production promotion:** verify catch-all routing to the Clayshot Worker, external receive/rejection tests, Cloudflare sender-domain onboarding for `clayshotpro.com`, and a live outbound test from an active native mailbox via `EMAIL_DYNAMIC` with a permitted destination. The REST API token is optional. Successful build is not proof of delivery.
 
 **Optional:** `MAILBOX_PURGE_ENABLED=true` after backups.
 

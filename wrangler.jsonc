@@ -34,7 +34,10 @@
   ],
   "send_email": [
     {
-      "name": "EMAIL_MULTI"
+      "name": "EMAIL"
+    },
+    {
+      "name": "EMAIL_DYNAMIC"
     }
   ],
   "triggers": {

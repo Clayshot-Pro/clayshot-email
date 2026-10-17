@@ -88,5 +88,10 @@ if (hydrated === config) {
   throw new Error("Production D1 binding could not be hydrated.");
 }
 
-await writeFile(CONFIG_PATH, hydrated, "utf8");
-console.log("Resolved production D1 binding from the deployed Worker without exposing its identifier in source control.");
+// The Cloudflare account ID is already supplied privately to the production
+// build. Copy only this non-secret identifier into the deployed Worker config;
+// the Email Sending API token remains a separate runtime secret.
+const parsed = JSON.parse(hydrated);
+parsed.vars.CF_EMAIL_SENDING_ACCOUNT_ID = accountId;
+await writeFile(CONFIG_PATH, JSON.stringify(parsed, null, 2) + "\n", "utf8");
+console.log("Resolved production D1 binding and configured Email Sending account ID without publishing credentials.");

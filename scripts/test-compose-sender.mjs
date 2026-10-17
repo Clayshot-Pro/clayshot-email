@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+const source = (path) => readFileSync(new URL("../" + path, import.meta.url), "utf8");
+const config = JSON.parse(source("wrangler.jsonc"));
+assert.ok(config.send_email.some((binding) => binding.name === "EMAIL_DYNAMIC"
+  && !binding.allowed_sender_addresses && !binding.allowed_destination_addresses));
+const registry = source("src/worker/providers/registry.ts");
+assert.match(registry, /sendEnabled: isNativeSenderAllowed\(env, box\.email_address\)/);
+assert.doesNotMatch(registry, /sendEnabled:.*nativeSendTransportReady/);
+const send = source("src/worker/email/send.ts");
+assert.doesNotMatch(send, /!nativeSendTransportReady\(/);
+assert.match(send, /isNativeSenderAllowed\(env, provider\.address\)/);
+const modal = source("src/client/components/ComposeModal.tsx");
+assert.match(modal, /const senderDisabled = currentSender\.status !== "active"/);
+assert.doesNotMatch(modal, /senderDisabled\s*=.*sendEnabled/);
+assert.match(modal, /role="alert"[^>]*>\{sendError\}/);
+const app = source("src/client/App.tsx");
+assert.match(app, /sendError=\{composeError\}/);
+assert.match(app, /setComposeError\(message\)/);
+console.log("PASS: active native mailbox compose is enabled and errors are visible in compose");

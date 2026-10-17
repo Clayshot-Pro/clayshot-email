@@ -36,7 +36,10 @@ interface Env {
   DB: D1Database;
   MAIL: R2Bucket;
   ASSETS: Fetcher;
-  EMAIL_MULTI: EmailServiceBinding;
+  EMAIL: EmailServiceBinding;
+  EMAIL_DYNAMIC?: EmailServiceBinding;
+  CF_EMAIL_SENDING_ACCOUNT_ID?: string;
+  CF_EMAIL_SENDING_TOKEN?: string;
   MAILBOX_PURGE_ENABLED?: string;
   PRIMARY_ADDRESS: string;
   ADMIN_LOGIN_ADDRESS?: string;

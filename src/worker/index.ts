@@ -104,7 +104,7 @@ function decodedRouteId(match: RegExpMatchArray): string | null {
   return match[1] ? decodePathSegment(match[1]) : null;
 }
 
-async function routeApi(request: Request, env: Env, url: URL): Promise<Response> {
+async function routeApi(request: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {
   if (!sameOrigin(request)) return jsonError("Cross-origin request rejected", 403);
   if (!SAFE_METHODS.has(request.method) && requestTooLarge(request)) {
     return jsonError("Request body too large", 413);
@@ -309,7 +309,7 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
     return jsonError("Method not allowed", 405);
   }
 
-  if (url.pathname === "/api/messages/bulk" && request.method === "POST") return bulkMailAction(request, env);
+  if (url.pathname === "/api/messages/bulk" && request.method === "POST") return bulkMailAction(request, env, ctx);
 
   const messageMatch = url.pathname.match(/^\/api\/messages\/([^/]+)$/);
   if (messageMatch) {
@@ -339,10 +339,10 @@ async function routeApi(request: Request, env: Env, url: URL): Promise<Response>
 }
 
 export default {
-  async fetch(request, env): Promise<Response> {
+  async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
-      const response = await routeApi(request, env, url);
+      const response = await routeApi(request, env, url, ctx);
       if (isApprovedAdminMutation(request.method, url.pathname)) {
         // Never retain request payload, mailbox passwords, cookies or assertions.
         const token = readOwnerSessionToken(request);

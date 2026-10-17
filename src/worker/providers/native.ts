@@ -1,4 +1,6 @@
 import type { MailProvider, ProviderListOptions, ProviderMessage, ProviderMutation, ProviderSendInput, ProviderSendResult } from "./types";
+import { sendViaEmailServiceApi } from "./emailServiceApi";
+import { nativeSendBinding } from "./senderPolicy";
 
 type NativeMessageRow = {
   id: string;
@@ -127,9 +129,19 @@ export class NativeMailProvider implements MailProvider {
   }
 
   async sendMessage(input: ProviderSendInput): Promise<ProviderSendResult> {
-    // All sender addresses require independently approved Cloudflare Email Sending.
-    // The admin panel may create arbitrary inboxes, but must not grant send rights.
-    const result = await this.env.EMAIL_MULTI.send({
+    // The REST API is domain-scoped rather than a static per-address sender list.
+    // It lets newly created, authenticated native mailboxes send immediately.
+    if (this.env.CF_EMAIL_SENDING_ACCOUNT_ID && this.env.CF_EMAIL_SENDING_TOKEN) {
+      return sendViaEmailServiceApi(this.env, this.address, this.senderName, input);
+    }
+    // The dedicated binding can send from any on-boarded native mail domain.
+    // The app supplies From from the authenticated active D1 mailbox, never
+    // from client data. Preserve the primary sender's restricted fallback.
+    const transport = nativeSendBinding(this.env, this.accountId);
+    if (!transport) {
+      throw Object.assign(new Error("Native sender binding unavailable"), { code: "E_NATIVE_TRANSPORT_NOT_CONFIGURED" });
+    }
+    const result = await transport.send({
       from: { email: this.address, name: this.senderName },
       to: input.to,
       cc: input.cc.length ? input.cc : undefined,
