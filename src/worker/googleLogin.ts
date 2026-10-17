@@ -110,9 +110,17 @@ export async function googleLoginCallback(request: Request, env: Env): Promise<R
         code_verifier: saved.verifier,
       }),
     });
-    if (!response.ok) return finish(request, "exchange_failed");
+    if (!response.ok) {
+      // Google's error code (e.g. invalid_client, invalid_grant) is safe to
+      // log and show; it never contains the secret, code or tokens.
+      const body = await response.json<{ error?: unknown }>().catch(() => null);
+      const reason = typeof body?.error === "string" && /^[a-z_]{1,40}$/.test(body.error) ? body.error : `http_${response.status}`;
+      console.warn(`google_login_exchange_failed reason=${reason}`);
+      return finish(request, `exchange_failed_${reason}`);
+    }
     idToken = (await response.json<{ id_token?: string }>()).id_token;
   } catch {
+    console.warn("google_login_exchange_failed reason=network");
     return finish(request, "exchange_failed");
   }
 
