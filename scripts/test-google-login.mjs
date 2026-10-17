@@ -33,6 +33,8 @@ assert.match(login, /url\.searchParams\.get\("state"\) !== saved\.state/);
 assert.match(login, /isAdministratorEmail\(request, email/);
 assert.match(login, /status='active' AND deleted_at IS NULL/);
 assert.match(login, /grantNativeDeviceSession/);
+assert.match(login, /\/\^\[a-z_\]\{1,40\}\$\/\.test\(body\.error\)/, "only a sanitized Google error code is surfaced");
+assert.doesNotMatch(login, /console\.\w+\([^)]*(client_secret|GOOGLE_CLIENT_SECRET|code_verifier|idToken)/, "never log credentials");
 const router = source("src/worker/index.ts");
 assert.match(router, /"\/api\/auth\/google\/start",\n\]\);/, "start is rate limited");
 assert.match(router, /"\/api\/auth\/google\/callback" && request.method === "GET"/);
